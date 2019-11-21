@@ -21,13 +21,29 @@ pupil_audio_pyaudio.logger.setLevel(logging.DEBUG)
 
 
 def main(
-    input_name="Default",
     output_path=str(pathlib.Path(__file__).with_suffix(".out.wav").absolute()),
     format=pyaudio.paInt16,
     channels=2,
     frame_rate=44100,
     chunk_size=1024,
 ):
+    input_names = [device_info["name"] for device_info in PyAudioDeviceInputStream.enumerate_devices()]
+    default_input_name = PyAudioDeviceInputStream.default_device()["name"]
+    print(default_input_name)
+
+    print("-" * 80)
+    print("PLEASE SELECT INPUT DEVICE:")
+    for index, name in enumerate(input_names):
+        default_flag = "D" if name == default_input_name else " "
+        print(f"\t[{index}] {default_flag}: {name}")
+
+    try:
+        input_name = input_names[int(input(">>> "))]
+    except (ValueError, IndexError):
+        print("Invalid input device number. Try again.")
+        exit(-1)
+
+    print("-" * 80)
 
     input_stream = PyAudioDeviceInputStream(
         name=input_name,
