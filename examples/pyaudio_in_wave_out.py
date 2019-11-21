@@ -34,13 +34,12 @@ def append_to_file_name(path, name_suffix):
 def main(
     output_path=str(pathlib.Path(__file__).with_suffix(".out.wav").absolute()),
     format=pyaudio.paInt16,
-    channels=2,
-    frame_rate=44100,
+    channels=None,
+    frame_rate=None,
     chunk_size=1024,
 ):
     input_names = [device_info["name"] for device_info in PyAudioDeviceInputStream.enumerate_devices()]
     default_input_name = PyAudioDeviceInputStream.default_device()["name"]
-    print(default_input_name)
 
     print("-" * 80)
     print("PLEASE SELECT INPUT DEVICE:")
@@ -65,6 +64,9 @@ def main(
         frame_rate=frame_rate,
         format=format,
     )
+
+    channels = input_stream.channels
+    frame_rate = input_stream.frame_rate
 
     output_stream = WaveFileOutputStream(
         path=output_path,
