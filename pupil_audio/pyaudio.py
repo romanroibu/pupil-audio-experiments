@@ -140,11 +140,19 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
         with _pyaudio_session_context() as session:
             return session.get_sample_size(self.format)
 
+    @staticmethod
+    def enumerate_devices():
+        return sorted(_pyaudio_inputs().values(), key=lambda x: x["index"])
+
 
 class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
 
     def __init__(self):
         raise NotImplementedError  # TODO: Implement
+
+    @staticmethod
+    def enumerate_devices():
+        return sorted(_pyaudio_outputs().values(), key=lambda x: x["index"])
 
 
 # PRIVATE
@@ -270,15 +278,3 @@ def _create_pyaudio_session():
 def _destroy_pyaudio_session(session):
     session.terminate()
     logger.debug("PyAudio session destroyed")
-
-
-if __name__ == "__main__":
-    print(f"Inputs:")
-    for name, info in _pyaudio_inputs().items():
-        print(f"\t{name}")
-        print(f"\t\t{info}")
-    print(f"------------------------------------------")
-    print(f"Outputs:")
-    for name, info in _pyaudio_outputs().items():
-        print(f"\t{name}")
-        print(f"\t\t{info}")
