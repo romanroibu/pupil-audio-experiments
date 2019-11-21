@@ -143,6 +143,10 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
     def enumerate_devices():
         return sorted(_pyaudio_inputs().values(), key=lambda x: x["index"])
 
+    @staticmethod
+    def default_device():
+        return _pyaudio_default_input()
+
 
 class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
 
@@ -153,6 +157,10 @@ class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
     def enumerate_devices():
         return sorted(_pyaudio_outputs().values(), key=lambda x: x["index"])
 
+    @staticmethod
+    def default_device():
+        return _pyaudio_default_output()
+
 
 # PRIVATE
 
@@ -161,6 +169,22 @@ _PYAUDIO_NO_DEVICE_INFO = {
     "name": AUDIO_INPUT_NO_AUDIO_NAME,
     "index": pa.paNoDevice,
 }
+
+
+def _pyaudio_default_input():
+    with _pyaudio_session_context() as session:
+        try:
+            return session.get_default_input_device_info()
+        except IOError:
+            return _PYAUDIO_NO_DEVICE_INFO
+
+
+def _pyaudio_default_output():
+    with _pyaudio_session_context() as session:
+        try:
+            return session.get_default_output_device_info()
+        except IOError:
+            return _PYAUDIO_NO_DEVICE_INFO
 
 
 def _pyaudio_input_info(name: str):
