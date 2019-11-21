@@ -20,6 +20,17 @@ pupil_audio_wave.logger.setLevel(logging.DEBUG)
 pupil_audio_pyaudio.logger.setLevel(logging.DEBUG)
 
 
+def append_to_file_name(path, name_suffix):
+    cls = type(path)
+    path = pathlib.Path(path)
+    dir_path = path.parent
+    name, *tail = path.name.split(".")
+    name += name_suffix
+    path = dir_path.joinpath(".".join([name]+tail))
+    path = cls(path)
+    return path
+
+
 def main(
     output_path=str(pathlib.Path(__file__).with_suffix(".out.wav").absolute()),
     format=pyaudio.paInt16,
@@ -44,6 +55,9 @@ def main(
         exit(-1)
 
     print("-" * 80)
+
+    # Append the input name to the output file name in the output path
+    output_path = append_to_file_name(output_path, " " + input_name)
 
     input_stream = PyAudioDeviceInputStream(
         name=input_name,
