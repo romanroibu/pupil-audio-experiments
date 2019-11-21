@@ -1,3 +1,4 @@
+import logging
 import platform
 import contextlib
 
@@ -7,6 +8,9 @@ import pyaudio as pa
 from .base import Codec
 from .base import InputStreamWithCodec
 from .base import OutputStreamWithCodec
+
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: Move to a shared location
@@ -109,6 +113,8 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
                 frames_per_buffer=chunk_size,
             )
             self.stream.start_stream()
+            logger.debug("PyAudioDeviceInputStream opened")
+
         return self.stream.read(chunk_size, exception_on_overflow=False)
 
     def close(self):
@@ -116,6 +122,7 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
             self.stream.stop_stream()
             self.stream.close()
             self.stream = None
+            logger.debug("PyAudioDeviceInputStream closed")
         if self.session is not None:
             _destroy_pyaudio_session(self.session)
             self.stream = None
@@ -256,11 +263,13 @@ def _pyaudio_session_context():
 def _create_pyaudio_session():
     # TODO: Send stdout to /dev/null while initializing the session
     session = pa.PyAudio()
+    logger.debug("PyAudio session created")
     return session
 
 
 def _destroy_pyaudio_session(session):
     session.terminate()
+    logger.debug("PyAudio session destroyed")
 
 
 if __name__ == "__main__":
