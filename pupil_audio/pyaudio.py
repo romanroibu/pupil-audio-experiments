@@ -83,15 +83,28 @@ class PyAudioCodec(Codec[str]):
 
 class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
-    def __init__(self, name, channels, frame_rate, format=None, dtype=None, session=None):
+    def __init__(self, name, channels=None, frame_rate=None, format=None, dtype=None):
+        device_info = _pyaudio_input_info(name)
+        frame_rate = frame_rate or device_info.get("defaultSampleRate", None)
+        channels = channels or device_info.get("maxInputChannels", None)
+
+        assert frame_rate is not None
+        assert channels is not None
+
         self.name = name
-        self.frame_rate = frame_rate
-        self.session = session
-        self.stream = None
+        self.frame_rate = int(frame_rate)
+        self.session = _create_pyaudio_session()
         self._codec = PyAudioCodec(
             channels=channels,
             format=format,
             dtype=dtype,
+        )
+        self.stream = self.session.open(
+            format=self.format,
+            channels=self.channels,
+            rate=self.frame_rate,
+            input=True,
+            input_device_index=device_info["index"],
         )
 
     @property
@@ -99,21 +112,11 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
         return self._codec
 
     def read_raw(self, chunk_size: int) -> str:
-        if self.session is None:
-            self.session = _create_pyaudio_session()
-        if self.stream is None:
-            device_info = _pyaudio_input_info(self.name)
-            self.stream = self.session.open(
-                format=self.format,
-                channels=self.channels,
-                rate=self.frame_rate,
-                input=True,
-                input_device_index=device_info["index"],
-                frames_per_buffer=chunk_size,
-            )
+        if not self.stream.is_active:
             self.stream.start_stream()
             logger.debug("PyAudioDeviceInputStream opened")
 
+        self.stream.frames_per_buffer = chunk_size
         return self.stream.read(chunk_size, exception_on_overflow=False)
 
     def close(self):
