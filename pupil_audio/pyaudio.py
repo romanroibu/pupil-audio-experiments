@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 # TODO: Move to a shared location
 AUDIO_INPUT_NO_AUDIO_NAME = "No Audio"
-AUDIO_INPUT_DEFAULT_NAME = "Default"
 
 
 class PyAudioCodec(Codec[str]):
@@ -198,10 +197,7 @@ def _linux_pyaudio_devices():
     for device_info in _pyaudio_devices_by_api(pa.paALSA):
         # print(device_info)
 
-        if "default" == device_info["name"]:
-            devices[AUDIO_INPUT_DEFAULT_NAME] = device_info
-
-        if "hw:" in device_info["name"]:
+        if "hw:" in device_info["name"] or "default" == device_info["name"]:
             devices[device_info["name"]] = device_info
 
     return devices
@@ -237,8 +233,6 @@ def _windows_pyaudio_devices():
 
     for device_info in _pyaudio_devices_by_api(pa.paDirectSound):
         # print(device_info)
-
-        # TODO: Check if default device
 
         devices[device_info["name"]] = device_info
 
