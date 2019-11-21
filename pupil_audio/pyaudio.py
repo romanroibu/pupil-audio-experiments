@@ -15,6 +15,7 @@ AUDIO_INPUT_DEFAULT_NAME = "Default"
 
 
 class PyAudioCodec(Codec[str]):
+
     # https://stackoverflow.com/a/22644499/1271958
 
     def __init__(self, channels: int, format:int=None, dtype:np.dtype=None):
@@ -81,8 +82,6 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
     def __init__(self, name, channels, frame_rate, format=None, dtype=None, session=None):
         self.name = name
-        self.format = format
-        self.channels = channels
         self.frame_rate = frame_rate
         self.session = session
         self.stream = None
@@ -120,6 +119,14 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
         if self.session is not None:
             _destroy_pyaudio_session(self.session)
             self.stream = None
+
+    @property
+    def format(self) -> int:
+        return self._codec.format
+
+    @property
+    def channels(self) -> int:
+        return self._codec.channels
 
     @property
     def sample_width(self):
