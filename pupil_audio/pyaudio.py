@@ -157,6 +157,12 @@ class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
 # PRIVATE
 
 
+_PYAUDIO_NO_DEVICE_INFO = {
+    "name": AUDIO_INPUT_NO_AUDIO_NAME,
+    "index": pa.paNoDevice,
+}
+
+
 def _pyaudio_input_info(name: str):
     input_devices = _pyaudio_inputs()
     try:
@@ -187,12 +193,7 @@ def _pyaudio_devices():
 
 
 def _linux_pyaudio_devices():
-    devices = {
-        AUDIO_INPUT_NO_AUDIO_NAME: {
-            "name": AUDIO_INPUT_NO_AUDIO_NAME,
-            "index": pa.paNoDevice,
-        },
-    }
+    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
 
     for device_info in _pyaudio_devices_by_api(pa.paALSA):
         # print(device_info)
@@ -204,12 +205,7 @@ def _linux_pyaudio_devices():
 
 
 def _macos_pyaudio_devices():
-    devices = {
-        AUDIO_INPUT_NO_AUDIO_NAME: {
-            "name": AUDIO_INPUT_NO_AUDIO_NAME,
-            "index": pa.paNoDevice,
-        },
-    }
+    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
 
     for device_index, device_info in enumerate(_pyaudio_devices_by_api(pa.paCoreAudio)):
         # print(device_info)
@@ -224,12 +220,7 @@ def _macos_pyaudio_devices():
 
 
 def _windows_pyaudio_devices():
-    devices = {
-        AUDIO_INPUT_NO_AUDIO_NAME: {
-            "name": AUDIO_INPUT_NO_AUDIO_NAME,
-            "index": None, # TODO: Why is this None instead of pyaudio.paNoDevice?
-        },
-    }
+    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
 
     for device_info in _pyaudio_devices_by_api(pa.paDirectSound):
         # print(device_info)
