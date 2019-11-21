@@ -1,4 +1,6 @@
 import wave
+import logging
+
 import numpy as np
 
 from .base import Codec
@@ -6,6 +8,9 @@ from .base import InputStreamWithCodec
 from .base import OutputStreamWithCodec
 
 from .pyaudio import PyAudioCodec
+
+
+logger = logging.getLogger(__name__)
 
 
 class WaveCodec(PyAudioCodec):
@@ -42,9 +47,11 @@ class WaveFileOutputStream(OutputStreamWithCodec[str]):
             self.file.setnchannels(self.channels)
             self.file.setframerate(self.frame_rate)
             self.file.setsampwidth(self.sample_width)
+            logger.debug("WaveFileOutputStream opened")
         self.file.writeframes(data)
 
     def close(self):
         if self.file is not None:
             self.file.close()
             self.file = None
+            logger.debug("WaveFileOutputStream closed")
