@@ -1,4 +1,4 @@
-examples/*.out.wav
+examples/*.out.*
 
 # Created by https://www.gitignore.io/api/python,pycharm,visualstudio
 # Edit at https://www.gitignore.io/?templates=python,pycharm,visualstudio
