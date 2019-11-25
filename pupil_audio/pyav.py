@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class PyAVCodec(Codec[av.AudioFrame]):
     # https://stackoverflow.com/a/22644499/1271958
 
-    def __init__(self, channels: int, format:str=None, dtype:np.dtype=None):
+    def __init__(self, channels: int, frame_rate, format:str=None, dtype:np.dtype=None):
         if format is not None and dtype is None:
             dtype = self._dtype_from_format(format)
         elif format is None and dtype is not None:
@@ -24,6 +24,7 @@ class PyAVCodec(Codec[av.AudioFrame]):
         else:
             raise ValueError(f"Either format or dtype should be specified, but not both")
         self.channels = channels
+        self.frame_rate = frame_rate
         self.format = format
         self.dtype = dtype
 
@@ -39,20 +40,16 @@ class PyAVCodec(Codec[av.AudioFrame]):
         # https://github.com/bastibe/SoundFile/blob/master/soundfile.py
         # https://github.com/spatialaudio/python-sounddevice/blob/master/examples/rec_unlimited.py
 
-        data = data.flatten(order = 'F') # TODO: Not sure this is correct
-        # data = data.flatten() # TODO: Not sure this is correct
+        data = data.flatten(order='F')
 
         chunk_length = len(data) / self.channels
         assert chunk_length == int(chunk_length)
-        # print(f"===> len(data): {len(data)}")
-        # print(f"===> channels: {self.channels}")
-        # print(f"===> CHUNK_LENGTH: {chunk_length}")
-        # print(f"===> DATA SHAPE BEFORE: {data.shape}")
-        data = np.reshape(data, (self.channels, int(chunk_length)))
-        # print(f"===> DATA SHAPE AFTER: {data.shape}")
 
-        # data = av.AudioFrame.from_ndarray(data, self.format)
+        data = np.reshape(data, (self.channels, int(chunk_length)))
+
         data = self._frame_from_ndarray(data, self.channels, self.format)
+
+        data.rate = self.frame_rate
 
         return data
 
@@ -103,7 +100,6 @@ class PyAVCodec(Codec[av.AudioFrame]):
         Construct a frame from a numpy array.
         """
 
-        # layout='stereo'
         format_dtypes = PyAVCodec._format_dtypes
         nb_channels = channels
         layout = PyAVCodec._channel_layout_names[channels]
@@ -145,10 +141,10 @@ class PyAVFileOutputStream(OutputStreamWithCodec[av.AudioFrame]):
         self.stream = None
         self._codec = PyAVCodec(
             channels=channels,
+            frame_rate=frame_rate,
             format=format,
             dtype=dtype,
         )
-        self.timestamp = 0
 
     @property
     def codec(self) -> Codec:
@@ -157,20 +153,13 @@ class PyAVFileOutputStream(OutputStreamWithCodec[av.AudioFrame]):
     def write_raw(self, data: av.AudioFrame):
         if self.container is None:
             self.container = av.open(self.path, 'w')
-            self.stream = self.container.add_stream('aac', rate=self.frame_rate)  # TODO: Pass as property
+            self.stream = self.container.add_stream('aac', rate=self.frame_rate)
             logger.debug(f"Opened stream: {self.path}")
-            print(self.stream)
 
         data.pts = None
-        # data.pts = self.timestamp / self.frame_rate * data.samples
-        self.timestamp += 1
 
-        packet = self.stream.encode(data)
-
-        print(data)
-        print(packet)
-
-        self.container.mux(packet)
+        for packet in self.stream.encode(data):
+            self.container.mux(packet)
 
     def close(self):
         if self.container is not None:
