@@ -1,3 +1,4 @@
+import logging
 import platform
 import contextlib
 
@@ -7,6 +8,9 @@ import av
 from .base import Codec
 from .base import InputStreamWithCodec
 from .base import OutputStreamWithCodec
+
+
+logger = logging.getLogger(__name__)
 
 
 class PyAVCodec(Codec[av.AudioFrame]):
@@ -35,14 +39,21 @@ class PyAVCodec(Codec[av.AudioFrame]):
         # https://github.com/bastibe/SoundFile/blob/master/soundfile.py
         # https://github.com/spatialaudio/python-sounddevice/blob/master/examples/rec_unlimited.py
 
+        data = data.flatten(order = 'F') # TODO: Not sure this is correct
+        # data = data.flatten() # TODO: Not sure this is correct
+
         chunk_length = len(data) / self.channels
         assert chunk_length == int(chunk_length)
+        # print(f"===> len(data): {len(data)}")
+        # print(f"===> channels: {self.channels}")
+        # print(f"===> CHUNK_LENGTH: {chunk_length}")
+        # print(f"===> DATA SHAPE BEFORE: {data.shape}")
+        data = np.reshape(data, (self.channels, int(chunk_length)))
+        # print(f"===> DATA SHAPE AFTER: {data.shape}")
 
-        data = np.reshape(data, (int(chunk_length), self.channels))
+        # data = av.AudioFrame.from_ndarray(data, self.format)
+        data = self._frame_from_ndarray(data, self.channels, self.format)
 
-
-
-        data = av.AudioFrame.from_ndarray(data, self.format)
         return data
 
     @staticmethod
@@ -59,6 +70,65 @@ class PyAVCodec(Codec[av.AudioFrame]):
         else:
             raise NotImplementedError()
 
+    # https://github.com/mikeboers/PyAV/blob/master/av/audio/frame.pyx
+    _format_dtypes = {
+        'dbl': '<f8',
+        'dblp': '<f8',
+        'flt': '<f4',
+        'fltp': '<f4',
+        's16': '<i2',
+        's16p': '<i2',
+        's32': '<i4',
+        's32p': '<i4',
+        'u8': 'u1',
+        'u8p': 'u1',
+    }
+
+    # https://github.com/FFmpeg/FFmpeg/blob/master/libavutil/channel_layout.c
+    _channel_layout_names = {
+        1: "mono",
+        2: "stereo",
+        3: "3.0",
+        4: "quad",
+        5: "5.0",
+        6: "hexagonal",
+        7: "7.0",
+        8: "octagonal",
+        16: "hexadecagonal",
+    }
+
+    @staticmethod
+    def _frame_from_ndarray(array, channels, format):
+        """
+        Construct a frame from a numpy array.
+        """
+
+        # layout='stereo'
+        format_dtypes = PyAVCodec._format_dtypes
+        nb_channels = channels
+        layout = PyAVCodec._channel_layout_names[channels]
+
+        # map avcodec type to numpy type
+        try:
+            dtype = np.dtype(format_dtypes[format])
+        except KeyError:
+            raise ValueError('Conversion from numpy array with format `%s` is not yet supported' % format)
+
+        # nb_channels = len(av.AudioLayout(layout).channels)
+        assert array.dtype == dtype
+        assert array.ndim == 2
+        if av.AudioFormat(format).is_planar:
+            assert array.shape[0] == nb_channels, f"array.shape={array.shape}, nb_channels={nb_channels}"
+            samples = array.shape[1]
+        else:
+            assert array.shape[0] == 1
+            samples = array.shape[1] // nb_channels
+
+        frame = av.AudioFrame(format=format, layout=layout, samples=samples)
+        for i, plane in enumerate(frame.planes):
+            plane.update(array[i, :])
+        return frame
+
 
 class PyAVFileInputStream(InputStreamWithCodec[av.AudioFrame]):
 
@@ -68,8 +138,9 @@ class PyAVFileInputStream(InputStreamWithCodec[av.AudioFrame]):
 
 class PyAVFileOutputStream(OutputStreamWithCodec[av.AudioFrame]):
 
-    def __init__(self, path, channels:int, format:str=None, dtype:np.dtype=None):
+    def __init__(self, path, channels:int, frame_rate, format:str=None, dtype:np.dtype=None):
         self.path = path
+        self.frame_rate = frame_rate
         self.container = None
         self.stream = None
         self._codec = PyAVCodec(
@@ -77,6 +148,7 @@ class PyAVFileOutputStream(OutputStreamWithCodec[av.AudioFrame]):
             format=format,
             dtype=dtype,
         )
+        self.timestamp = 0
 
     @property
     def codec(self) -> Codec:
@@ -85,21 +157,29 @@ class PyAVFileOutputStream(OutputStreamWithCodec[av.AudioFrame]):
     def write_raw(self, data: av.AudioFrame):
         if self.container is None:
             self.container = av.open(self.path, 'w')
-            self.stream = self.container.add_stream('mp3')  # TODO: Pass as property
+            self.stream = self.container.add_stream('aac', rate=self.frame_rate)  # TODO: Pass as property
+            logger.debug(f"Opened stream: {self.path}")
+            print(self.stream)
 
         data.pts = None
+        # data.pts = self.timestamp / self.frame_rate * data.samples
+        self.timestamp += 1
 
-        for packet in self.stream.encode(data):
-            self.container.mux(packet)
+        packet = self.stream.encode(data)
 
-        for packet in self.stream.encode(None):
-            self.container.mux(packet)
+        print(data)
+        print(packet)
+
+        self.container.mux(packet)
 
     def close(self):
         if self.container is not None:
+            for packet in self.stream.encode(None):
+                self.container.mux(packet)
             self.container.close()
             self.container = None
             self.stream = None
+            logger.debug(f"Closed stream: {self.path}")
 
     @property
     def format(self) -> int:

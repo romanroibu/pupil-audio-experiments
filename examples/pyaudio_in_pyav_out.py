@@ -1,17 +1,24 @@
 import sys
 import time
 import pathlib
+import logging
 
 import numpy as np
 
 from _pupil_audio import Control
 from _pupil_audio import PyAudioDeviceInputStream
 from _pupil_audio import PyAVFileOutputStream
+from _pupil_audio import pyav as pupil_audio_pyav  # For logger
+from _pupil_audio import pyaudio as pupil_audio_pyaudio  # For logger
+
+
+pupil_audio_pyav.logger.setLevel(logging.DEBUG)
+pupil_audio_pyaudio.logger.setLevel(logging.DEBUG)
 
 
 def main(
     input_name="Default",
-    output_path=str(pathlib.Path(__file__).with_suffix(".out.mp3").absolute()),
+    output_path=str(pathlib.Path(__file__).with_suffix(".out.mp4").absolute()),
     dtype=np.dtype('int16'),
     channels=2,
     frame_rate=44100,
@@ -27,6 +34,7 @@ def main(
     output_stream = PyAVFileOutputStream(
         path=output_path,
         channels=channels,
+        frame_rate=frame_rate,
         dtype=dtype,
     )
 
