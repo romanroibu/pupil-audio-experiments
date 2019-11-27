@@ -22,18 +22,29 @@ def get_user_selected_input_name() -> str:
     return selected_name
 
 
-def get_output_file_path(*parts, extension="mp4") -> str:
+def get_output_file_path(script, *parts, ext="mp4") -> str:
     import pathlib
 
-    path = pathlib.Path(__file__).parent
-    path = path.joinpath("outputs")
+    def get_dir() -> str:
+        path = pathlib.Path(__file__).parent
+        path = path.joinpath("outputs")
+        path = path.absolute()
+        return path
 
-    for part in parts:
-        path = path.joinpath(part)
+    def get_name(script=script, parts=parts) -> str:
+        parts = (pathlib.Path(script).stem, *parts)
+        return "---".join(parts)
 
-    path = path.with_suffix(f".out.{extension}")
-    path = path.absolute()
+    def get_ext(ext=ext) -> str:
+        return f".out.{ext}"
+
+    path = get_dir()
+    path = path.joinpath(get_name())
+    path = path.with_suffix(get_ext())
 
     path.parent.mkdir(parents=True, exist_ok=True)
 
     return str(path)
+
+
+print(__file__)
