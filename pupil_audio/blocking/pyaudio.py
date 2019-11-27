@@ -1,9 +1,9 @@
 import logging
-import platform
-import contextlib
 
 import numpy as np
-import pyaudio as pa
+import pyaudio
+
+import pupil_audio.utils.pyaudio as pyaudio_utils
 
 from .base import Codec
 from .base import InputStreamWithCodec
@@ -11,10 +11,6 @@ from .base import OutputStreamWithCodec
 
 
 logger = logging.getLogger(__name__)
-
-
-# TODO: Move to a shared location
-AUDIO_INPUT_NO_AUDIO_NAME = "No Audio"
 
 
 class PyAudioCodec(Codec[str]):
@@ -65,9 +61,9 @@ class PyAudioCodec(Codec[str]):
 
     @staticmethod
     def _dtype_from_format(format):
-        if format == pa.paFloat32:
+        if format == pyaudio.paFloat32:
             return np.dtype('float32')
-        elif format == pa.paInt16:
+        elif format == pyaudio.paInt16:
             return np.dtype('int16')
         else:
             raise NotImplementedError()
@@ -75,9 +71,9 @@ class PyAudioCodec(Codec[str]):
     @staticmethod
     def _format_from_dtype(dtype):
         if dtype == np.dtype('float32'):
-            return pa.paFloat32
+            return pyaudio.paFloat32
         elif dtype == np.dtype('int16'):
-            return pa.paInt16
+            return pyaudio.paInt16
         else:
             raise NotImplementedError()
 
@@ -85,7 +81,7 @@ class PyAudioCodec(Codec[str]):
 class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
     def __init__(self, name, channels=None, frame_rate=None, format=None, dtype=None):
-        device_info = _pyaudio_input_info(name)
+        device_info = pyaudio_utils.get_input_by_name(name)
         frame_rate = frame_rate or device_info.get("defaultSampleRate", None)
         channels = channels or device_info.get("maxInputChannels", None)
 
@@ -94,7 +90,7 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
         self.name = name
         self.frame_rate = int(frame_rate)
-        self.session = _create_pyaudio_session()
+        self.session = pyaudio_utils.create_session()
         self._codec = PyAudioCodec(
             frame_rate=frame_rate,
             channels=channels,
@@ -128,7 +124,7 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
             self.stream = None
             logger.debug("PyAudioDeviceInputStream closed")
         if self.session is not None:
-            _destroy_pyaudio_session(self.session)
+            pyaudio_utils.destroy_session(self.session)
             self.stream = None
 
     @property
@@ -141,16 +137,16 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
     @property
     def sample_width(self):
-        with _pyaudio_session_context() as session:
+        with pyaudio_utils.session_context() as session:
             return session.get_sample_size(self.format)
 
     @staticmethod
     def enumerate_devices():
-        return sorted(_pyaudio_inputs().values(), key=lambda x: x["index"])
+        return sorted(pyaudio_utils.get_all_inputs().values(), key=lambda x: x["index"])
 
     @staticmethod
     def default_device():
-        return _pyaudio_default_input()
+        return pyaudio_utils.get_default_input()
 
 
 class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
@@ -160,135 +156,8 @@ class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
 
     @staticmethod
     def enumerate_devices():
-        return sorted(_pyaudio_outputs().values(), key=lambda x: x["index"])
+        return sorted(pyaudio_utils.get_all_outputs().values(), key=lambda x: x["index"])
 
     @staticmethod
     def default_device():
-        return _pyaudio_default_output()
-
-
-# PRIVATE
-
-
-_PYAUDIO_NO_DEVICE_INFO = {
-    "name": AUDIO_INPUT_NO_AUDIO_NAME,
-    "index": pa.paNoDevice,
-}
-
-
-def _pyaudio_default_input():
-    with _pyaudio_session_context() as session:
-        try:
-            return session.get_default_input_device_info()
-        except IOError:
-            return _PYAUDIO_NO_DEVICE_INFO
-
-
-def _pyaudio_default_output():
-    with _pyaudio_session_context() as session:
-        try:
-            return session.get_default_output_device_info()
-        except IOError:
-            return _PYAUDIO_NO_DEVICE_INFO
-
-
-def _pyaudio_input_info(name: str):
-    input_devices = _pyaudio_inputs()
-    try:
-        device_info = input_devices[name]
-    except KeyError:
-        available_devices = ", ".join(sorted(input_devices.keys()))
-        raise ValueError(f"No device named \"{name}\". Available devices: {available_devices}.")
-    return device_info
-
-
-def _pyaudio_inputs():
-    return {k: v for k, v in _pyaudio_devices().items() if v.get("maxInputChannels", 0) > 0}
-
-
-def _pyaudio_outputs():
-    return {k: v for k, v in _pyaudio_devices().items() if v.get("maxOutputChannels", 0) > 0}
-
-
-def _pyaudio_devices():
-    if platform.system() == "Linux":
-        return _linux_pyaudio_devices()
-    elif platform.system() == "Darwin":
-        return _macos_pyaudio_devices()
-    elif platform.system() == "Windows":
-        return _windows_pyaudio_devices()
-    else:
-        raise NotImplementedError("Unsupported operating system")
-
-
-def _linux_pyaudio_devices():
-    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
-
-    for device_info in _pyaudio_devices_by_api(pa.paALSA):
-        # print(device_info)
-
-        if "hw:" in device_info["name"] or "default" == device_info["name"]:
-            devices[device_info["name"]] = device_info
-
-    return devices
-
-
-def _macos_pyaudio_devices():
-    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
-
-    for device_index, device_info in enumerate(_pyaudio_devices_by_api(pa.paCoreAudio)):
-        # print(device_info)
-        device_info["index"] = device_index
-
-        # TODO: Check if default device
-
-        if "NoMachine" not in device_info["name"]:
-            devices[device_info["name"]] = device_info
-
-    return devices
-
-
-def _windows_pyaudio_devices():
-    devices = {_PYAUDIO_NO_DEVICE_INFO["name"]: _PYAUDIO_NO_DEVICE_INFO}
-
-    for device_info in _pyaudio_devices_by_api(pa.paDirectSound):
-        # print(device_info)
-
-        devices[device_info["name"]] = device_info
-
-    return devices
-
-
-def _pyaudio_devices_by_api(api):
-
-    with _pyaudio_session_context() as session:
-
-        host_api_info = session.get_host_api_info_by_type(api)
-
-        host_api_index = host_api_info["index"]
-        device_count = host_api_info["deviceCount"]
-
-        for device_index in range(device_count):
-            device_info = session.get_device_info_by_host_api_device_index(host_api_index, device_index)
-            yield device_info
-
-
-@contextlib.contextmanager
-def _pyaudio_session_context():
-    try:
-        session = _create_pyaudio_session()
-        yield session
-    finally:
-        _destroy_pyaudio_session(session)
-
-
-def _create_pyaudio_session():
-    # TODO: Send stdout to /dev/null while initializing the session
-    session = pa.PyAudio()
-    logger.debug("PyAudio session created")
-    return session
-
-
-def _destroy_pyaudio_session(session):
-    session.terminate()
-    logger.debug("PyAudio session destroyed")
+        return pyaudio_utils.get_default_output()
