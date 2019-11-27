@@ -32,6 +32,7 @@ class WaveFileOutputStream(OutputStreamWithCodec[str]):
         self.frame_rate = frame_rate
         self.sample_width = sample_width
         self._codec = WaveCodec(
+            frame_rate=frame_rate,
             channels=channels,
             format=format,
             dtype=dtype,
