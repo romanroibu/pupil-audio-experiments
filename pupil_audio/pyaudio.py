@@ -21,13 +21,14 @@ class PyAudioCodec(Codec[str]):
 
     # https://stackoverflow.com/a/22644499/1271958
 
-    def __init__(self, channels: int, format:int=None, dtype:np.dtype=None):
+    def __init__(self, frame_rate, channels: int, format:int=None, dtype:np.dtype=None):
         if format is not None and dtype is None:
             dtype = self._dtype_from_format(format)
         elif format is None and dtype is not None:
             format = self._format_from_dtype(dtype)
         else:
             raise ValueError(f"Either format or dtype should be specified, but not both")
+        self.frame_rate = frame_rate
         self.format = format
         self.dtype = dtype
         self.channels = channels
@@ -95,6 +96,7 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
         self.frame_rate = int(frame_rate)
         self.session = _create_pyaudio_session()
         self._codec = PyAudioCodec(
+            frame_rate=frame_rate,
             channels=channels,
             format=format,
             dtype=dtype,
