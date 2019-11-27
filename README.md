@@ -4,6 +4,7 @@
 
 ```bash
 git clone https://github.com/romanroibu/pupil-audio-experiments.git
+python3 -m pip install -r requirements.txt
 
 cd pupil-audio-experiments
 
