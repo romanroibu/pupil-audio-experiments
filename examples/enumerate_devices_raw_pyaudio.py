@@ -1,13 +1,20 @@
-import pprint
-import itertools
+def main():
+    import pprint
 
-import pyaudio
+    pp = pprint.PrettyPrinter(indent=4)
 
+    devices = get_devices_from_all_apis()
 
-pp = pprint.PrettyPrinter(indent=4)
+    print("-" * 80)
+    print("DEVICES:")
+    pp.pprint(devices)
+    print("-" * 80)
 
 
 def get_devices_from_all_apis():
+    import itertools
+    import pyaudio
+
     session = pyaudio.PyAudio()
 
     result = {}
@@ -36,16 +43,6 @@ def get_devices_from_all_apis():
         return result
     finally:
         session.terminate()
-
-
-def main():
-
-    devices = get_devices_from_all_apis()
-
-    print("-" * 80)
-    print("DEVICES:")
-    pp.pprint(devices)
-    print("-" * 80)
 
 
 if __name__ == "__main__":
