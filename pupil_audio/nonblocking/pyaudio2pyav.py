@@ -66,8 +66,11 @@ class PyAudio2PyAVTranscoder():
         self.channels = channels
         self.dtype = dtype
 
-        self._thread = None
-        self._is_running = threading.Event()
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
 
     _dtype_to_pyaudio_format = {
         np.dtype("<f4"): pyaudio.paFloat32,

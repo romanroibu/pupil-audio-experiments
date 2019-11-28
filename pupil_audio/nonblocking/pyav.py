@@ -31,6 +31,7 @@ class PyAVFileSink():
             daemon=True,
         )
         self._thread.start()
+        self._transcoder.start()
 
     def stop(self):
         if not self.is_running:
@@ -38,6 +39,7 @@ class PyAVFileSink():
         self._running.clear()
         self._thread.join()
         self._thread = None
+        self._transcoder.stop()
 
     def _record_loop(self, file_path, frame_rate):
         container = av.open(file_path, 'w')
