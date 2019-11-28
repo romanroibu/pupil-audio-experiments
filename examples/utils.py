@@ -33,6 +33,8 @@ def get_output_file_path(script, *parts, ext="mp4") -> str:
 
     def get_name(script=script, parts=parts) -> str:
         parts = (pathlib.Path(script).stem, *parts)
+        parts = [str(p).strip() for p in parts if p]
+        parts = [p for p in parts if len(p) > 0]
         return "---".join(parts)
 
     def get_ext(ext=ext) -> str:
@@ -45,6 +47,3 @@ def get_output_file_path(script, *parts, ext="mp4") -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     return str(path)
-
-
-print(__file__)
