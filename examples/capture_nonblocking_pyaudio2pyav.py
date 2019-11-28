@@ -1,4 +1,8 @@
-def main():
+def main(
+    in_name,
+    out_path,
+    frame_rate=None,
+):
     import time
     import examples.utils as example_utils
     from pupil_audio.nonblocking import PyAudio2PyAVCapture
@@ -8,7 +12,8 @@ def main():
 
     capture = PyAudio2PyAVCapture(
         in_name=in_name,
-        out_path=out_path
+        out_path=out_path,
+        frame_rate=frame_rate,
     )
 
     try:
