@@ -56,8 +56,6 @@ class PyAVFileSink():
 
             out_frame, out_timestamp = self._transcoder.transcode(in_frame, in_timestamp)
 
-            out_frame.pts = None
-
             for packet in stream.encode(out_frame):
                 container.mux(packet)
 
