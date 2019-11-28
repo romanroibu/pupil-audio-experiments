@@ -129,7 +129,7 @@ class PyAudio2PyAVTranscoder():
         except KeyError:
             raise ValueError(f"Couldn't map {self.channels} channels to a PyAV layout")
 
-    def transcode(self, in_frame: np.ndarray, timestamp: float) -> T.Tuple[av.AudioFrame, float]:
+    def transcode(self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo) -> T.Tuple[av.AudioFrame, float]:
 
         # Step 1: Decode PyAudio input frame
 
@@ -166,4 +166,4 @@ class PyAudio2PyAVTranscoder():
 
         out_frame.rate = self.frame_rate
 
-        return out_frame, timestamp
+        return out_frame, time_info.input_buffer_adc_time

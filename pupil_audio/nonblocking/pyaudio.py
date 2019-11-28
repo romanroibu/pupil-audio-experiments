@@ -45,11 +45,8 @@ class PyAudioDeviceSource():
     def _stream_callback(self, in_data, frame_count, time_info, status):
         time_info = pyaudio_utils.TimeInfo(time_info)
 
-        timestamp = time_info.input_buffer_adc_time
-        # timestamp = time_info.current_time
-
         try:
-            self._queue.put_nowait((in_data, timestamp))
+            self._queue.put_nowait((in_data, time_info))
         except queue.Full:
             print(f"!!!!!!!!!!!!!!!!!!!!!! FRAME DROPPED")
             # TODO: Log warning about the queue being full
