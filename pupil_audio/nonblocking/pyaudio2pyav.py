@@ -18,7 +18,7 @@ class PyAudio2PyAVCapture:
     def available_input_devices():
         return sorted(pyaudio_utils.get_all_inputs().keys())
 
-    def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None):
+    def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None, transcoder_cls=None):
         device = pyaudio_utils.get_input_by_name(in_name)
 
         frame_rate = int(frame_rate or device.default_sample_rate)
@@ -26,7 +26,10 @@ class PyAudio2PyAVCapture:
 
         self.shared_queue = queue.Queue()
 
-        self.transcoder = PyAudio2PyAVTranscoder(
+        transcoder_cls = transcoder_cls or PyAudio2PyAVTranscoder
+        assert issubclass(transcoder_cls, PyAudio2PyAVTranscoder)
+
+        self.transcoder = transcoder_cls(
             frame_rate=frame_rate,
             channels=channels,
         )
