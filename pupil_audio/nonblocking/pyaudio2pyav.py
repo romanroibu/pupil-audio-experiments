@@ -69,7 +69,7 @@ class PyAudio2PyAVTranscoder():
         self.frame_rate = frame_rate
         self.channels = channels
         self.dtype = dtype
-        self.start_ts = None
+        self.num_encoded_frames = 0
 
     def start(self):
         pass
@@ -169,13 +169,9 @@ class PyAudio2PyAVTranscoder():
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
 
-        if self.start_ts is None:
-            self.start_ts = time_info.input_buffer_adc_time
-
         out_frame.rate = self.frame_rate
         out_frame.time_base = Fraction(1, self.frame_rate)
-
-        time_since_start = time_info.input_buffer_adc_time - self.start_ts
-        out_frame.pts = int(time_since_start * self.frame_rate)
+        out_frame.pts = out_frame.samples * self.num_encoded_frames
+        self.num_encoded_frames += 1
 
         return out_frame, time_info.input_buffer_adc_time
