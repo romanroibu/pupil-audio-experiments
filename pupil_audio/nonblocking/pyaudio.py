@@ -44,6 +44,9 @@ class PyAudioDeviceSource():
 
     def _stream_callback(self, in_data, frame_count, time_info, status):
         time_info = pyaudio_utils.TimeInfo(time_info)
+        bytes_per_channel = pyaudio.get_sample_size(self._format)
+        theoretic_len = frame_count * self._channels * bytes_per_channel
+        assert theoretic_len == len(in_data)
 
         try:
             self._queue.put_nowait((in_data, time_info))
