@@ -1,6 +1,7 @@
 import queue
 import threading
 import typing as T
+from fractions import Fraction
 
 import numpy as np
 import pyaudio
@@ -68,6 +69,7 @@ class PyAudio2PyAVTranscoder():
         self.frame_rate = frame_rate
         self.channels = channels
         self.dtype = dtype
+        self.num_encoded_frames = 0
 
     def start(self):
         pass
@@ -168,5 +170,8 @@ class PyAudio2PyAVTranscoder():
             plane.update(tmp_frame[i, :])
 
         out_frame.rate = self.frame_rate
+        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.pts = out_frame.samples * self.num_encoded_frames
+        self.num_encoded_frames += 1
 
         return out_frame, time_info.input_buffer_adc_time
