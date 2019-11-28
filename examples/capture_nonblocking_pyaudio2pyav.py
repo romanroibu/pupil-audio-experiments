@@ -27,6 +27,69 @@ def main(
         capture.stop()
 
 
+import time
+import numpy as np
+from pupil_audio.nonblocking.pyaudio2pyav import PyAudio2PyAVTranscoder
+
+class _PyAudio2PyAVCustomTranscoder(PyAudio2PyAVTranscoder):
+    _debug_out_path = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self._debug_out_path, f"Please set {type(self).__name__}._debug_out_path"
+        self._debug_data_store = _DebugDataStore(self._debug_out_path)
+
+    def transcode(self, in_frame, time_info):
+        delay = abs(time_info.current_time - time_info.input_buffer_adc_time)
+        self._debug_data_store.write(in_frame, delay)
+        return super().transcode(in_frame, time_info)
+
+    def start(self):
+        super().start()
+        self._debug_data_store.open()
+
+    def stop(self):
+        super().stop()
+        self._debug_data_store.close()
+
+
+class _DebugDataStore:
+    def __init__(self, out_path):
+        from pathlib import Path
+        out_path = Path(out_path)
+        self.raw_buffer_file_path = str(out_path.with_name(out_path.stem + "_raw_buffer").with_suffix(".dat"))
+        self.timestamps_file_path = str(out_path.with_name(out_path.stem + "_timestamps").with_suffix(".npy"))
+        self._raw_buffer_file = None
+        self._timestamps_list = None
+
+    def is_opened(self) -> bool:
+        return self._raw_buffer_file is None or self._timestamps_list is None
+
+    def open(self):
+        if self._raw_buffer_file is None:
+            self._raw_buffer_file = open(self.raw_buffer_file_path, 'wb')
+        if self._timestamps_list is None:
+            self._timestamps_list = []
+
+    def write(self, in_frame, delay):
+        if not self.is_opened:
+            self.open()
+
+        timestamp = time.monotonic() - delay
+
+        self._raw_buffer_file.write(in_frame)
+        self._timestamps_list.append((timestamp, len(in_frame)))
+
+    def close(self):
+        if self._raw_buffer_file is not None:
+            self._raw_buffer_file.close()
+            self._raw_buffer_file = None
+        if self._timestamps_list is not None:
+            timestamps = np.array(self._timestamps_list)
+            np.save(self.timestamps_file_path, timestamps)
+            self._timestamps_list = None
+
+
 if __name__ == "__main__":
     import click
     import examples.utils as example_utils
