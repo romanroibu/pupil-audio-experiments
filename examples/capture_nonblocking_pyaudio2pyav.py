@@ -3,16 +3,22 @@ def main(
     out_path,
     frame_rate=None,
     duration=None,
+    debug=False
 ):
     import time
     from pupil_audio.nonblocking import PyAudio2PyAVCapture
 
     duration = duration or float("inf")
 
+    transcoder_cls = _PyAudio2PyAVCustomTranscoder if debug else None
+
+    _PyAudio2PyAVCustomTranscoder._debug_out_path = out_path
+
     capture = PyAudio2PyAVCapture(
         in_name=in_name,
         out_path=out_path,
         frame_rate=frame_rate,
+        transcoder_cls=transcoder_cls
     )
 
     start_time = time.monotonic()
@@ -97,14 +103,17 @@ if __name__ == "__main__":
     @click.command()
     @click.option("--frame_rate", default=None, type=click.INT, help="Frame rate used for the input and output (if not set, the default input frame rate is used)")
     @click.option("--duration", default=None, type=click.FLOAT, help="Duration of the recording (if not set, the user should manually stop the recording with Ctrl+C)")
-    def cli(frame_rate, duration):
+    @click.option("--debug", is_flag=True, help="If set, captures the raw data from the input used for debugging")
+    def cli(frame_rate, duration, debug):
         duration_str = f"{duration}_sec" if duration else None
+        debug_str = "debug" if debug else None
         in_name = example_utils.get_user_selected_input_name()
         out_path = example_utils.get_output_file_path(
             __file__,
             in_name,
             frame_rate,
             duration_str,
+            debug_str,
             ext="mp4"
         )
         main(
@@ -112,6 +121,7 @@ if __name__ == "__main__":
             out_path=out_path,
             frame_rate=frame_rate,
             duration=duration,
+            debug=debug
         )
 
     cli()
