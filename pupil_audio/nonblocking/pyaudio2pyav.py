@@ -19,7 +19,7 @@ class PyAudio2PyAVCapture:
     def available_input_devices():
         return sorted(pyaudio_utils.get_all_inputs().keys())
 
-    def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None, transcoder_cls=None):
+    def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None, dtype=None, transcoder_cls=None):
         device = pyaudio_utils.get_input_by_name(in_name)
 
         frame_rate = int(frame_rate or device.default_sample_rate)
@@ -33,6 +33,7 @@ class PyAudio2PyAVCapture:
         self.transcoder = transcoder_cls(
             frame_rate=frame_rate,
             channels=channels,
+            dtype=dtype,
         )
 
         self.source = PyAudioDeviceSource(
@@ -63,7 +64,8 @@ class PyAudio2PyAVCapture:
 
 class PyAudio2PyAVTranscoder():
 
-    def __init__(self, frame_rate, channels, dtype=np.dtype("int16")):
+    def __init__(self, frame_rate, channels, dtype=None):
+        dtype = dtype or np.dtype("int16")
         assert dtype in self._supported_dtypes()
 
         self.frame_rate = frame_rate
