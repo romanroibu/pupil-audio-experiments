@@ -203,7 +203,7 @@ class PassthroughTranscoder(PyAudio2PyAVTranscoder):
     @property
     def pyav_format(self) -> str:
         try:
-            interleaved, plannar = self._dtype_to_pyav_format_interleaved_and_planar[
+            interleaved, planar = self._dtype_to_pyav_format_interleaved_and_planar[
                 self.dtype
             ]
             return interleaved
