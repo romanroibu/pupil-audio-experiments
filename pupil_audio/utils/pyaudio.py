@@ -53,11 +53,11 @@ def _get_default_device_info(f: T.Callable[[pyaudio.PyAudio], dict]) -> T.Option
             return None
 
 
-def get_input_by_name(name: str) -> DeviceInfo:
+def get_input_by_name(name: str, session=None) -> DeviceInfo:
     return _get_device_info_by_name(name, get_all_inputs())
 
 
-def get_output_by_name(name: str) -> DeviceInfo:
+def get_output_by_name(name: str, session=None) -> DeviceInfo:
     return _get_device_info_by_name(name, get_all_outputs())
 
 
@@ -69,50 +69,57 @@ def _get_device_info_by_name(name: str, devices_by_name: T.Mapping[str, DeviceIn
         raise ValueError(f"No device named \"{name}\". Available devices: {available_devices}.")
 
 
-def get_all_inputs() -> T.Mapping[str, DeviceInfo]:
-    return {k: v for k, v in get_all_devices().items() if v.get("maxInputChannels", 0) > 0}
+def get_all_inputs(unowned_session=None) -> T.Mapping[str, DeviceInfo]:
+    return {k: v for k, v in get_all_devices(unowned_session=unowned_session).items() if v.get("maxInputChannels", 0) > 0}
 
 
-def get_all_outputs() -> T.Mapping[str, DeviceInfo]:
-    return {k: v for k, v in get_all_devices().items() if v.get("maxOutputChannels", 0) > 0}
+def get_all_outputs(unowned_session=None) -> T.Mapping[str, DeviceInfo]:
+    return {k: v for k, v in get_all_devices(unowned_session=unowned_session).items() if v.get("maxOutputChannels", 0) > 0}
 
 
-def get_all_devices() -> T.Mapping[str, DeviceInfo]:
+def get_all_devices(unowned_session=None) -> T.Mapping[str, DeviceInfo]:
     if platform.system() == "Linux":
-        device_infos = _get_linux_device_infos()
+        device_infos = _get_linux_device_infos(unowned_session=unowned_session)
     elif platform.system() == "Darwin":
-        device_infos = _get_macos_device_infos()
+        device_infos = _get_macos_device_infos(unowned_session=unowned_session)
     elif platform.system() == "Windows":
-        device_infos = _get_windows_device_infos()
+        device_infos = _get_windows_device_infos(unowned_session=unowned_session)
     else:
         raise NotImplementedError("Unsupported operating system")
 
     return {info["name"]: DeviceInfo(info) for info in device_infos}
 
 
-def _get_linux_device_infos() -> T.Iterator[dict]:
-    for device_info in _get_device_infos_by_api(pyaudio.paALSA):
+def _get_linux_device_infos(unowned_session=None) -> T.Iterator[dict]:
+    for device_info in _get_device_infos_by_api(pyaudio.paALSA, unowned_session=unowned_session):
         if "hw:" in device_info["name"] or "default" == device_info["name"]:
             yield device_info
 
 
-def _get_macos_device_infos() -> T.Iterator[dict]:
-    for device_index, device_info in enumerate(_get_device_infos_by_api(pyaudio.paCoreAudio)):
+def _get_macos_device_infos(unowned_session=None) -> T.Iterator[dict]:
+    for device_index, device_info in enumerate(_get_device_infos_by_api(pyaudio.paCoreAudio, unowned_session=unowned_session)):
         device_info["index"] = device_index
         if "NoMachine" not in device_info["name"]:
             yield device_info
 
 
-def _get_windows_device_infos() -> T.Iterator[dict]:
-    for device_info in _get_device_infos_by_api(pyaudio.paDirectSound):
+def _get_windows_device_infos(unowned_session=None) -> T.Iterator[dict]:
+    for device_info in _get_device_infos_by_api(pyaudio.paDirectSound, unowned_session=unowned_session):
         yield device_info
 
 
-def _get_device_infos_by_api(api):
-    with session_context() as session:
-        api_info = session.get_host_api_info_by_type(api)
-        for device_index in range(api_info["deviceCount"]):
-            yield session.get_device_info_by_host_api_device_index(api_info["index"], device_index)
+def _get_device_infos_by_api(api, unowned_session=None):
+    if unowned_session:
+        yield from _get_device_infos_by_api_with_unowned_session(api, unowned_session)
+    else:
+        with session_context() as owned_session:
+            yield from _get_device_infos_by_api_with_unowned_session(api, owned_session)
+
+
+def _get_device_infos_by_api_with_unowned_session(api, unowned_session):
+    api_info = unowned_session.get_host_api_info_by_type(api)
+    for device_index in range(api_info["deviceCount"]):
+        yield unowned_session.get_device_info_by_host_api_device_index(api_info["index"], device_index)
 
 
 @contextlib.contextmanager
