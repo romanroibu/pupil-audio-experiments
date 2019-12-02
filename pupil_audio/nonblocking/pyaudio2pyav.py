@@ -70,7 +70,8 @@ class PyAudio2PyAVCapture:
 class PyAudio2PyAVTranscoder:
     def __init__(self, frame_rate, channels, dtype=None):
         dtype = dtype or np.dtype("int16")
-        assert dtype in self._supported_dtypes()
+        supported = self._supported_dtypes()
+        assert dtype in supported, f"Supported dtypes: {supported}. {dtype} requested."
 
         self.frame_rate = frame_rate
         self.channels = channels
@@ -192,14 +193,6 @@ class PyAudio2PyAVTranscoder:
 
 
 class PassthroughTranscoder(PyAudio2PyAVTranscoder):
-    def __init__(self, frame_rate, channels, dtype=np.dtype("int16")):
-        assert dtype in self._supported_dtypes()
-
-        self.frame_rate = frame_rate
-        self.channels = channels
-        self.dtype = dtype
-        self.num_encoded_frames = 0
-
     @property
     def pyav_format(self) -> str:
         try:
