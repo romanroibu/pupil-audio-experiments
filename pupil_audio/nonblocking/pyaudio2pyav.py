@@ -124,8 +124,8 @@ class PyAudio2PyAVTranscoder():
     @property
     def pyav_format(self) -> str:
         try:
-            interleaved, plannar = self._dtype_to_pyav_format_interleaved_and_planar[self.dtype]
-            return plannar
+            interleaved, planar = self._dtype_to_pyav_format_interleaved_and_planar[self.dtype]
+            return planar
         except KeyError:
             raise ValueError(f"Couldn't map {self.dtype} dtype to a PyAV format")
 
