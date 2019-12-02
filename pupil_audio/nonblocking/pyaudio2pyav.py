@@ -150,6 +150,8 @@ class PyAudio2PyAVTranscoder():
 
         # Step 2: Encode PyAV output frame
 
+        # Flatten in column-major (Fortran-style) order
+        # Effectively converting the buffer to a planar audio frame
         tmp_frame = tmp_frame.flatten(order='F')
 
         chunk_length = len(tmp_frame) / self.channels
