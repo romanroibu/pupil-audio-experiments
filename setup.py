@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 requirements = [
@@ -7,18 +7,16 @@ requirements = [
     "pyaudio",
 ]
 
-
-package = "pupil_audio"
-
+packages = find_packages(".")
 
 if __name__ == "__main__":
     setup(
         name="pupil_audio",
         version="0.1",
-        packages=[package],
+        packages=packages,
         install_requires=requirements,
         license="GNU",
         author="Pupil Labs",
         author_email="info@pupil-labs.com",
-        url="https://github.com/pupil-labs/pupil-audio"
+        url="https://github.com/pupil-labs/pupil-audio",
     )
