@@ -1,10 +1,4 @@
-def main(
-    in_name,
-    out_path,
-    frame_rate=None,
-    duration=None,
-    debug=False
-):
+def main(in_name, out_path, frame_rate=None, duration=None, debug=False):
     import time
     from pupil_audio.nonblocking import PyAudio2PyAVCapture
 
@@ -18,7 +12,7 @@ def main(
         in_name=in_name,
         out_path=out_path,
         frame_rate=frame_rate,
-        transcoder_cls=transcoder_cls
+        transcoder_cls=transcoder_cls,
     )
 
     start_time = time.monotonic()
@@ -35,9 +29,10 @@ def main(
 
 import time
 import numpy as np
-from pupil_audio.nonblocking.pyaudio2pyav import PyAudio2PyAVTranscoder
+from pupil_audio.nonblocking.pyaudio2pyav import PassthroughTranscoder
 
-class _PyAudio2PyAVCustomTranscoder(PyAudio2PyAVTranscoder):
+
+class _PyAudio2PyAVCustomTranscoder(PassthroughTranscoder):
     _debug_out_path = None
 
     def __init__(self, *args, **kwargs):
@@ -62,9 +57,14 @@ class _PyAudio2PyAVCustomTranscoder(PyAudio2PyAVTranscoder):
 class _DebugDataStore:
     def __init__(self, out_path):
         from pathlib import Path
+
         out_path = Path(out_path)
-        self.raw_buffer_file_path = str(out_path.with_name(out_path.stem + "_raw_buffer").with_suffix(".dat"))
-        self.timestamps_file_path = str(out_path.with_name(out_path.stem + "_timestamps").with_suffix(".npy"))
+        self.raw_buffer_file_path = str(
+            out_path.with_name(out_path.stem + "_raw_buffer").with_suffix(".dat")
+        )
+        self.timestamps_file_path = str(
+            out_path.with_name(out_path.stem + "_timestamps").with_suffix(".npy")
+        )
         self._raw_buffer_file = None
         self._timestamps_list = None
 
@@ -73,7 +73,7 @@ class _DebugDataStore:
 
     def open(self):
         if self._raw_buffer_file is None:
-            self._raw_buffer_file = open(self.raw_buffer_file_path, 'wb')
+            self._raw_buffer_file = open(self.raw_buffer_file_path, "wb")
         if self._timestamps_list is None:
             self._timestamps_list = []
 
@@ -101,27 +101,36 @@ if __name__ == "__main__":
     import examples.utils as example_utils
 
     @click.command()
-    @click.option("--frame_rate", default=None, type=click.INT, help="Frame rate used for the input and output (if not set, the default input frame rate is used)")
-    @click.option("--duration", default=None, type=click.FLOAT, help="Duration of the recording (if not set, the user should manually stop the recording with Ctrl+C)")
-    @click.option("--debug", is_flag=True, help="If set, captures the raw data from the input used for debugging")
+    @click.option(
+        "--frame_rate",
+        default=None,
+        type=click.INT,
+        help="Frame rate used for the input and output (if not set, the default input frame rate is used)",
+    )
+    @click.option(
+        "--duration",
+        default=None,
+        type=click.FLOAT,
+        help="Duration of the recording (if not set, the user should manually stop the recording with Ctrl+C)",
+    )
+    @click.option(
+        "--debug",
+        is_flag=True,
+        help="If set, captures the raw data from the input used for debugging",
+    )
     def cli(frame_rate, duration, debug):
         duration_str = f"{duration}_sec" if duration else None
         debug_str = "debug" if debug else None
         in_name = example_utils.get_user_selected_input_name()
         out_path = example_utils.get_output_file_path(
-            __file__,
-            in_name,
-            frame_rate,
-            duration_str,
-            debug_str,
-            ext="mp4"
+            __file__, in_name, frame_rate, duration_str, debug_str, ext="mp4"
         )
         main(
             in_name=in_name,
             out_path=out_path,
             frame_rate=frame_rate,
             duration=duration,
-            debug=debug
+            debug=debug,
         )
 
     cli()

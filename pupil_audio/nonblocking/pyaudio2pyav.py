@@ -14,12 +14,19 @@ from .pyav import PyAVFileSink
 
 
 class PyAudio2PyAVCapture:
-
     @staticmethod
     def available_input_devices():
         return sorted(pyaudio_utils.get_all_inputs().keys())
 
-    def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None, dtype=None, transcoder_cls=None):
+    def __init__(
+        self,
+        in_name: str,
+        out_path: str,
+        frame_rate=None,
+        channels=None,
+        dtype=None,
+        transcoder_cls=None,
+    ):
         device = pyaudio_utils.get_input_by_name(in_name)
 
         frame_rate = int(frame_rate or device.default_sample_rate)
@@ -31,9 +38,7 @@ class PyAudio2PyAVCapture:
         assert issubclass(transcoder_cls, PyAudio2PyAVTranscoder)
 
         self.transcoder = transcoder_cls(
-            frame_rate=frame_rate,
-            channels=channels,
-            dtype=dtype,
+            frame_rate=frame_rate, channels=channels, dtype=dtype,
         )
 
         self.source = PyAudioDeviceSource(
@@ -62,8 +67,7 @@ class PyAudio2PyAVCapture:
         self.source.stop()
 
 
-class PyAudio2PyAVTranscoder():
-
+class PyAudio2PyAVTranscoder:
     def __init__(self, frame_rate, channels, dtype=None):
         dtype = dtype or np.dtype("int16")
         assert dtype in self._supported_dtypes()
@@ -124,7 +128,9 @@ class PyAudio2PyAVTranscoder():
     @property
     def pyav_format(self) -> str:
         try:
-            interleaved, planar = self._dtype_to_pyav_format_interleaved_and_planar[self.dtype]
+            interleaved, planar = self._dtype_to_pyav_format_interleaved_and_planar[
+                self.dtype
+            ]
             return planar
         except KeyError:
             raise ValueError(f"Couldn't map {self.dtype} dtype to a PyAV format")
@@ -136,7 +142,9 @@ class PyAudio2PyAVTranscoder():
         except KeyError:
             raise ValueError(f"Couldn't map {self.channels} channels to a PyAV layout")
 
-    def transcode(self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo) -> T.Tuple[av.AudioFrame, float]:
+    def transcode(
+        self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo
+    ) -> T.Tuple[av.AudioFrame, float]:
 
         # Step 1: Decode PyAudio input frame
 
@@ -152,7 +160,7 @@ class PyAudio2PyAVTranscoder():
 
         # Flatten in column-major (Fortran-style) order
         # Effectively converting the buffer to a planar audio frame
-        tmp_frame = tmp_frame.flatten(order='F')
+        tmp_frame = tmp_frame.flatten(order="F")
 
         chunk_length = len(tmp_frame) / self.channels
         assert chunk_length == int(chunk_length)
@@ -168,7 +176,63 @@ class PyAudio2PyAVTranscoder():
             assert tmp_frame.shape[0] == 1
             samples = tmp_frame.shape[1] // self.channels
 
-        out_frame = av.AudioFrame(format=self.pyav_format, layout=self.pyav_layout, samples=samples)
+        out_frame = av.AudioFrame(
+            format=self.pyav_format, layout=self.pyav_layout, samples=samples
+        )
+
+        for i, plane in enumerate(out_frame.planes):
+            plane.update(tmp_frame[i, :])
+
+        out_frame.rate = self.frame_rate
+        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.pts = out_frame.samples * self.num_encoded_frames
+        self.num_encoded_frames += 1
+
+        return out_frame, time_info.input_buffer_adc_time
+
+
+class PassthroughTranscoder(PyAudio2PyAVTranscoder):
+    def __init__(self, frame_rate, channels, dtype=np.dtype("int16")):
+        assert dtype in self._supported_dtypes()
+
+        self.frame_rate = frame_rate
+        self.channels = channels
+        self.dtype = dtype
+        self.num_encoded_frames = 0
+
+    @property
+    def pyav_format(self) -> str:
+        try:
+            interleaved, plannar = self._dtype_to_pyav_format_interleaved_and_planar[
+                self.dtype
+            ]
+            return interleaved
+        except KeyError:
+            raise ValueError(f"Couldn't map {self.dtype} dtype to a PyAV format")
+
+    def transcode(
+        self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo
+    ) -> T.Tuple[av.AudioFrame, float]:
+
+        # Step 1: Decode PyAudio input frame
+
+        tmp_frame = np.frombuffer(in_frame, dtype=self.dtype)
+        tmp_frame.shape = 1, -1
+
+        chunk_length = tmp_frame.size / self.channels
+        assert chunk_length == int(chunk_length)
+        chunk_length = int(chunk_length)
+
+        if av.AudioFormat(self.pyav_format).is_planar:
+            assert tmp_frame.shape[0] == self.channels
+            samples = tmp_frame.shape[1]
+        else:
+            assert tmp_frame.shape[0] == 1
+            samples = tmp_frame.shape[1] // self.channels
+
+        out_frame = av.AudioFrame(
+            format=self.pyav_format, layout=self.pyav_layout, samples=samples
+        )
 
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
