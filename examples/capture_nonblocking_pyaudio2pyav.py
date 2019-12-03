@@ -68,6 +68,7 @@ class _DebugDataStore:
         self._raw_buffer_file = None
         self._timestamps_list = None
 
+    @property
     def is_opened(self) -> bool:
         return self._raw_buffer_file is None or self._timestamps_list is None
 
