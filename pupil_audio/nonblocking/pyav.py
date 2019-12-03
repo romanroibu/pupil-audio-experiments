@@ -59,10 +59,9 @@ class PyAVFileSink():
 
         while True:
             try:
-                in_frame, in_timestamp = self._queue.get_nowait()
+                in_frame, in_timestamp = self._queue.get(timeout=0.01)
             except queue.Empty:
                 if self.is_running:
-                    time.sleep(0.01) # TODO: Set this value according to the frame rate
                     continue
                 else:
                     break
