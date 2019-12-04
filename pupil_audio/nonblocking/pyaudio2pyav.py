@@ -7,7 +7,7 @@ import numpy as np
 import pyaudio
 import av
 
-from pupil_audio.utils.pyaudio import DeviceInfo
+from pupil_audio.utils.pyaudio import DeviceInfo, TimeInfo
 
 from .pyaudio import PyAudioDeviceSource
 from .pyav import PyAVFileSink
@@ -136,7 +136,7 @@ class PyAudio2PyAVTranscoder():
         except KeyError:
             raise ValueError(f"Couldn't map {self.channels} channels to a PyAV layout")
 
-    def transcode(self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo) -> T.Tuple[av.AudioFrame, float]:
+    def transcode(self, in_frame: np.ndarray, time_info: TimeInfo) -> T.Tuple[av.AudioFrame, float]:
 
         # Step 1: Decode PyAudio input frame
 
