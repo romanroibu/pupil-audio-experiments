@@ -1,6 +1,7 @@
 import logging
 import platform
 import contextlib
+import threading
 import typing as T
 
 import pyaudio
@@ -108,12 +109,15 @@ def _get_windows_device_infos(unowned_session=None) -> T.Iterator[dict]:
         yield device_info
 
 
+_get_device_infos_by_api_lock = threading.RLock()
+
 def _get_device_infos_by_api(api, unowned_session=None):
-    if unowned_session:
-        yield from _get_device_infos_by_api_with_unowned_session(api, unowned_session)
-    else:
-        with session_context() as owned_session:
-            yield from _get_device_infos_by_api_with_unowned_session(api, owned_session)
+    with _get_device_infos_by_api_lock:
+        if unowned_session:
+            yield from _get_device_infos_by_api_with_unowned_session(api, unowned_session)
+        else:
+            with session_context() as owned_session:
+                yield from _get_device_infos_by_api_with_unowned_session(api, owned_session)
 
 
 def _get_device_infos_by_api_with_unowned_session(api, unowned_session):
