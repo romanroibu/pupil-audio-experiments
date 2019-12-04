@@ -222,8 +222,7 @@ class DeviceInfo(dict):
     @staticmethod
     def _filter_on_linux(device_infos: T.Iterator["DeviceInfo"]) -> T.Iterator["DeviceInfo"]:
         for device_info in device_infos:
-            # TODO: Consider ignoring "default" since it sometimes has invalid configuration
-            if "hw:" in device_info.name or "default" == device_info.name:
+            if "hw:" in device_info.name:
                 yield device_info
 
     @staticmethod
