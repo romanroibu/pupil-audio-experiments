@@ -1,5 +1,6 @@
 import logging
 import platform
+import itertools
 import contextlib
 import threading
 import typing as T
@@ -58,6 +59,12 @@ class HostApiInfo(dict):
         else:
             raise UnsupportedOperatingSystem()
 
+    @property
+    def has_devices(self) -> bool:
+        for _ in self.enumerate_devices():
+            return True
+        return False
+
     def enumerate_devices(self) -> T.Iterator["DeviceInfo"]:
         with PyAudioManager.shared_instance() as manager:
             for device_index in range(self.device_count):
@@ -70,22 +77,40 @@ class HostApiInfo(dict):
     # Private
 
     @staticmethod
-    def _default_on_linux() -> T.Optional["DeviceInfo"]:
-        # TODO: Use try other APIs if this ALSA is not available
-        return HostApiInfo._find_with_api_type(pyaudio.paALSA)
+    def _default_on_linux() -> T.Optional["HostApiInfo"]:
+        return HostApiInfo._default_with_priority(pyaudio.paALSA)
 
     @staticmethod
-    def _default_on_macos() -> T.Optional["DeviceInfo"]:
-        # TODO: Use try other APIs if this CoreAudio is not available
-        return HostApiInfo._find_with_api_type(pyaudio.paCoreAudio)
+    def _default_on_macos() -> T.Optional["HostApiInfo"]:
+        return HostApiInfo._default_with_priority(pyaudio.paCoreAudio)
 
     @staticmethod
-    def _default_on_windows() -> T.Optional["DeviceInfo"]:
-        # TODO: Use try other APIs if this DirectSound is not available
-        return HostApiInfo._find_with_api_type(pyaudio.paDirectSound)
+    def _default_on_windows() -> T.Optional["HostApiInfo"]:
+        return HostApiInfo._default_with_priority(pyaudio.paDirectSound)
 
     @staticmethod
-    def _find_with_api_type(api_type):
+    def _default_with_priority(*prioritised_api_types) -> T.Optional["HostApiInfo"]:
+        prioritised_apis = filter(None, map(HostApiInfo._find_with_api_type, prioritised_api_types))
+
+        all_apis = itertools.chain(prioritised_apis, HostApiInfo.supported())
+
+        first_api_info = None
+
+        for api_info in all_apis:
+            if first_api_info is None:
+                first_api_info = api_info
+            if api_info.has_devices:
+                return api_info
+
+        if first_api_info is not None:
+            logger.warning("None of the supported APIs have an accessible device")
+            return first_api_info
+
+        logger.warning("There are no supported APIs")
+        return None
+
+    @staticmethod
+    def _find_with_api_type(api_type) -> T.Optional["HostApiInfo"]:
         with PyAudioManager.shared_instance() as manager:
             try:
                 api_info = manager.get_host_api_info_by_type(api_type)
@@ -94,7 +119,7 @@ class HostApiInfo(dict):
                 return None
 
     @staticmethod
-    def _find_with_api_index(api_index):
+    def _find_with_api_index(api_index) -> T.Optional["HostApiInfo"]:
         with PyAudioManager.shared_instance() as manager:
             try:
                 api_info = manager.get_host_api_info_by_index(api_index)
@@ -162,7 +187,7 @@ class DeviceInfo(dict):
         api_info = HostApiInfo.default()
 
         if not api_info:
-            # TODO: Log that no API is available
+            logger.warning("No default PyAudio API available")
             return []
 
         device_infos = api_info.enumerate_devices()
