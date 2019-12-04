@@ -12,7 +12,7 @@ class PyAVFileSink():
     def __init__(self, file_path, transcoder, frame_rate, channels, format, in_queue, timestamps_path=None):
         file_path = Path(file_path)
         self._file_path = str(file_path)
-        self._timestamps_path = timestamps_path or str(file_path.with_name(file_path.stem[:-len("_timestamps")] + "_timestamps").with_suffix(".npy"))
+        self._timestamps_path = timestamps_path or str(file_path.with_name(file_path.stem + "_timestamps").with_suffix(".npy"))
         self._timestamps_list = None
         self._transcoder = transcoder
         self._frame_rate = frame_rate
