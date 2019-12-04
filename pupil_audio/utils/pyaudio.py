@@ -37,7 +37,7 @@ class HostApiInfo(dict):
     device_count                    = key_property("deviceCount",           type=int, readonly=True, default=0)
     default_input_device_index      = key_property("defaultInputDevice",    type=int, readonly=True, default=None)
     default_output_device_index     = key_property("defaultOutputDevice",   type=int, readonly=True, default=None)
-    structVersion                   = key_property("structVersion",         type=int,   readonly=True)
+    structVersion                   = key_property("structVersion",         type=int, readonly=True)
 
     # Public
 
@@ -248,6 +248,9 @@ class DeviceInfo(dict):
 
 
 class PyAudioManager:
+    """
+    Manages access to the shared PortAudio library instance.
+    """
 
     # Public
 
