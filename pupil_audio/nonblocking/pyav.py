@@ -56,6 +56,7 @@ class PyAVFileSink():
     def _record_loop(self, file_path, frame_rate):
         container = av.open(file_path, 'w')
         stream = container.add_stream('aac', rate=float(frame_rate))
+        should_flush_stream = False
 
         while True:
             try:
@@ -70,10 +71,12 @@ class PyAVFileSink():
 
             for packet in stream.encode(out_frame):
                 container.mux(packet)
+                should_flush_stream = True
 
             self._timestamps_list.append(out_timestamp)
 
-        for packet in stream.encode(None):
-            container.mux(packet)
+        if should_flush_stream:
+            for packet in stream.encode(None):
+                container.mux(packet)
 
         container.close()
