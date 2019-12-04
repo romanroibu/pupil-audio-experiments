@@ -7,7 +7,7 @@ import numpy as np
 import pyaudio
 import av
 
-import pupil_audio.utils.pyaudio as pyaudio_utils
+from pupil_audio.utils.pyaudio import DeviceInfo
 
 from .pyaudio import PyAudioDeviceSource
 from .pyav import PyAVFileSink
@@ -17,10 +17,10 @@ class PyAudio2PyAVCapture:
 
     @staticmethod
     def available_input_devices():
-        return sorted(pyaudio_utils.get_all_inputs().keys())
+        return sorted(DeviceInfo.inputs_by_name().keys())
 
     def __init__(self, in_name: str, out_path: str, frame_rate=None, channels=None, dtype=None, transcoder_cls=None):
-        device = pyaudio_utils.get_input_by_name(in_name)
+        device = DeviceInfo.named_input(in_name)
 
         frame_rate = int(frame_rate or device.default_sample_rate)
         channels = int(channels or device.max_input_channels)

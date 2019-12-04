@@ -2,7 +2,7 @@ import queue
 
 import pyaudio
 
-import pupil_audio.utils.pyaudio as pyaudio_utils
+from pupil_audio.utils.pyaudio import PyAudioManager, HostApiInfo, DeviceInfo, TimeInfo
 
 
 class PyAudioDeviceSource():
@@ -21,7 +21,7 @@ class PyAudioDeviceSource():
 
     def start(self):
         if self._session is None:
-            self._session = pyaudio_utils.create_session()
+            self._session = PyAudioManager.acquire_shared_instance()
         if self._stream is None:
             self._stream = self._session.open(
                 channels=self._channels,
@@ -39,11 +39,11 @@ class PyAudioDeviceSource():
             self._stream.close()
             self._stream = None
         if self._session is not None:
-            pyaudio_utils.destroy_session(self._session)
+            PyAudioManager.release_shared_instance(self._session)
             self._session = None
 
     def _stream_callback(self, in_data, frame_count, time_info, status):
-        time_info = pyaudio_utils.TimeInfo(time_info)
+        time_info = TimeInfo(time_info)
         bytes_per_channel = pyaudio.get_sample_size(self._format)
         theoretic_len = frame_count * self._channels * bytes_per_channel
         assert theoretic_len == len(in_data)

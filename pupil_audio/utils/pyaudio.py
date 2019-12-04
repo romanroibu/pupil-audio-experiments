@@ -247,41 +247,6 @@ class DeviceInfo(dict):
                 yield DeviceInfo(device_info)
 
 
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_default_input() -> T.Optional[DeviceInfo]:
-    return DeviceInfo.default_input()
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_default_output() -> T.Optional[DeviceInfo]:
-    return DeviceInfo.default_output()
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_input_by_name(name: str) -> DeviceInfo:
-    return DeviceInfo.named_input(name)
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_output_by_name(name: str) -> DeviceInfo:
-    return DeviceInfo.named_output(name)
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_all_inputs(unowned_session=None) -> T.Mapping[str, DeviceInfo]:
-    return DeviceInfo.inputs_by_name()
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_all_outputs() -> T.Mapping[str, DeviceInfo]:
-    return DeviceInfo.outputs_by_name()
-
-
-# TODO: Remove function in favour of using DeviceInfo directly
-def get_all_devices() -> T.Mapping[str, DeviceInfo]:
-    return DeviceInfo.devices_by_name()
-
-
 class PyAudioManager:
 
     # Public
@@ -322,20 +287,3 @@ class PyAudioManager:
 
     _manager_lock = threading.RLock()
     _acquired_managers = set()
-
-
-# TODO: Remove function in favour of using PyAudioManager directly
-@contextlib.contextmanager
-def session_context():
-    with PyAudioManager.shared_instance() as manager:
-        yield manager
-
-
-# TODO: Remove function in favour of using PyAudioManager directly
-def create_session():
-    return PyAudioManager.acquire_shared_instance()
-
-
-# TODO: Remove function in favour of using PyAudioManager directly
-def destroy_session(session):
-    PyAudioManager.release_shared_instance(session)

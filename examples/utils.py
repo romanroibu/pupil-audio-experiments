@@ -1,13 +1,13 @@
 def get_user_selected_input_name() -> str:
-    from pupil_audio.utils.pyaudio import get_all_inputs, get_default_input
+    from pupil_audio.utils.pyaudio import DeviceInfo
 
-    default_device = get_default_input()
+    default_device = DeviceInfo.default_input()
     if default_device is None:
         print("No default input device availabe!")
         exit(-1)
 
-    input_names = sorted(device.name for device in get_all_inputs().values())
-    default_name = get_default_input().name
+    input_names = sorted(device.name for device in DeviceInfo.inputs_by_name().values())
+    default_name = DeviceInfo.default_input().name
 
     print("-" * 80)
     print("PLEASE SELECT INPUT DEVICE:")

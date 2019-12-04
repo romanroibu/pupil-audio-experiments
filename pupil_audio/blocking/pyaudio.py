@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pyaudio
 
-import pupil_audio.utils.pyaudio as pyaudio_utils
+from pupil_audio.utils.pyaudio import PyAudioManager, HostApiInfo, DeviceInfo
 
 from .base import Codec
 from .base import InputStreamWithCodec
@@ -81,16 +81,16 @@ class PyAudioCodec(Codec[str]):
 class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
     def __init__(self, name, channels=None, frame_rate=None, format=None, dtype=None):
-        device_info = pyaudio_utils.get_input_by_name(name)
-        frame_rate = frame_rate or device_info.get("defaultSampleRate", None)
-        channels = channels or device_info.get("maxInputChannels", None)
+        device_info = DeviceInfo.named_input(name)
+        frame_rate = frame_rate or device_info.default_sample_rate
+        channels = channels or device_info.max_input_channels
 
-        assert frame_rate is not None
-        assert channels is not None
+        assert frame_rate
+        assert channels
 
         self.name = name
         self.frame_rate = int(frame_rate)
-        self.session = pyaudio_utils.create_session()
+        self.session = PyAudioManager.acquire_shared_instance()
         self._codec = PyAudioCodec(
             frame_rate=frame_rate,
             channels=channels,
@@ -124,7 +124,7 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
             self.stream = None
             logger.debug("PyAudioDeviceInputStream closed")
         if self.session is not None:
-            pyaudio_utils.destroy_session(self.session)
+            PyAudioManager.release_shared_instance(self.session)
             self.stream = None
 
     @property
@@ -137,16 +137,16 @@ class PyAudioDeviceInputStream(InputStreamWithCodec[str]):
 
     @property
     def sample_width(self):
-        with pyaudio_utils.session_context() as session:
+        with PyAudioManager.shared_instance() as session:
             return session.get_sample_size(self.format)
 
     @staticmethod
     def enumerate_devices():
-        return sorted(pyaudio_utils.get_all_inputs().values(), key=lambda x: x["index"])
+        return sorted(DeviceInfo.inputs_by_name().values(), key=lambda x: x.index)
 
     @staticmethod
     def default_device():
-        return pyaudio_utils.get_default_input()
+        return DeviceInfo.default_input()
 
 
 class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
@@ -156,8 +156,8 @@ class PyAudioDeviceOutputStream(OutputStreamWithCodec[str]):
 
     @staticmethod
     def enumerate_devices():
-        return sorted(pyaudio_utils.get_all_outputs().values(), key=lambda x: x["index"])
+        return sorted(DeviceInfo.outputs_by_name().values(), key=lambda x: x.index)
 
     @staticmethod
     def default_device():
-        return pyaudio_utils.get_default_output()
+        return DeviceInfo.default_output()
