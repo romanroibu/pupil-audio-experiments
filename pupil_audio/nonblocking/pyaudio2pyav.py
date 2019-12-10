@@ -25,7 +25,9 @@ class PyAudio2PyAVCapture:
         frame_rate=None,
         channels=None,
         dtype=None,
+        source_cls=None,
         transcoder_cls=None,
+        sink_cls=None,
     ):
         device = DeviceInfo.named_input(in_name)
 
@@ -34,14 +36,20 @@ class PyAudio2PyAVCapture:
 
         self.shared_queue = queue.Queue()
 
+        source_cls = source_cls or PyAudioDeviceSource
+        assert issubclass(source_cls, PyAudioDeviceSource)
+
         transcoder_cls = transcoder_cls or PyAudio2PyAVTranscoder
         assert issubclass(transcoder_cls, PyAudio2PyAVTranscoder)
+
+        sink_cls = sink_cls or PyAVFileSink
+        assert issubclass(sink_cls, PyAVFileSink)
 
         self.transcoder = transcoder_cls(
             frame_rate=frame_rate, channels=channels, dtype=dtype,
         )
 
-        self.source = PyAudioDeviceSource(
+        self.source = source_cls(
             device_index=device.index,
             frame_rate=self.transcoder.frame_rate,
             channels=self.transcoder.channels,
@@ -49,7 +57,7 @@ class PyAudio2PyAVCapture:
             out_queue=self.shared_queue,
         )
 
-        self.sink = PyAVFileSink(
+        self.sink = sink_cls(
             file_path=out_path,
             transcoder=self.transcoder,
             frame_rate=self.transcoder.frame_rate,
