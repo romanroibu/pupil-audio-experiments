@@ -3,12 +3,45 @@ def main():
 
     pp = pprint.PrettyPrinter(indent=4)
 
+    apis = get_apis()
     devices = get_devices_from_all_apis()
 
     print("-" * 80)
+
+    print("APIS:")
+    pp.pprint(apis)
+
+    print("-" * 80)
+
     print("DEVICES:")
     pp.pprint(devices)
+
     print("-" * 80)
+
+
+def get_apis():
+    import pyaudio
+
+    session = pyaudio.PyAudio()
+
+    result = {}
+
+    try:
+        host_api_count = session.get_host_api_count()
+
+        api_indices = range(host_api_count)
+
+        for host_api_index in api_indices:
+
+            host_info = session.get_host_api_info_by_index(host_api_index)
+            key = host_info["name"]
+
+            result[key] = host_info
+        
+        return result
+    finally:
+        session.terminate()
+
 
 
 def get_devices_from_all_apis():

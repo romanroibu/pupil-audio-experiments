@@ -7,7 +7,7 @@ import numpy as np
 import pyaudio
 import av
 
-import pupil_audio.utils.pyaudio as pyaudio_utils
+from pupil_audio.utils.pyaudio import DeviceInfo, TimeInfo
 
 from .pyaudio import PyAudioDeviceSource
 from .pyav import PyAVFileSink
@@ -16,7 +16,7 @@ from .pyav import PyAVFileSink
 class PyAudio2PyAVCapture:
     @staticmethod
     def available_input_devices():
-        return sorted(pyaudio_utils.get_all_inputs().keys())
+        return sorted(DeviceInfo.inputs_by_name().keys())
 
     def __init__(
         self,
@@ -27,7 +27,7 @@ class PyAudio2PyAVCapture:
         dtype=None,
         transcoder_cls=None,
     ):
-        device = pyaudio_utils.get_input_by_name(in_name)
+        device = DeviceInfo.named_input(in_name)
 
         frame_rate = int(frame_rate or device.default_sample_rate)
         channels = int(channels or device.max_input_channels)
@@ -144,7 +144,7 @@ class PyAudio2PyAVTranscoder:
             raise ValueError(f"Couldn't map {self.channels} channels to a PyAV layout")
 
     def transcode(
-        self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo
+        self, in_frame: np.ndarray, time_info: TimeInfo
     ) -> T.Tuple[av.AudioFrame, float]:
 
         # Step 1: Decode PyAudio input frame
@@ -204,7 +204,7 @@ class PassthroughTranscoder(PyAudio2PyAVTranscoder):
             raise ValueError(f"Couldn't map {self.dtype} dtype to a PyAV format")
 
     def transcode(
-        self, in_frame: np.ndarray, time_info: pyaudio_utils.TimeInfo
+        self, in_frame: np.ndarray, time_info: TimeInfo
     ) -> T.Tuple[av.AudioFrame, float]:
 
         # Step 1: Decode PyAudio input frame

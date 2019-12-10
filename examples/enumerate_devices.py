@@ -1,11 +1,10 @@
 def main():
     import pprint
 
-    from pupil_audio.utils.pyaudio import get_all_inputs, get_all_outputs
-    from pupil_audio.utils.pyaudio import get_default_input, get_default_output
+    from pupil_audio.utils.pyaudio import DeviceInfo
 
-    input_devices, output_devices = get_all_inputs(), get_all_outputs()
-    input_default, output_default = get_default_input(), get_default_output()
+    input_devices, output_devices = DeviceInfo.inputs_by_name(), DeviceInfo.outputs_by_name()
+    input_default, output_default = DeviceInfo.default_input(), DeviceInfo.default_output()
 
     pp = pprint.PrettyPrinter(indent=4)
 
