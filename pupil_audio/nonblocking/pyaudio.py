@@ -2,6 +2,7 @@ import time
 import queue
 import logging
 import threading
+import collections
 import typing as T
 
 import pyaudio
@@ -105,47 +106,89 @@ class PyAudioDeviceSource():
         self._frame_rate = int(frame_rate)
         self._channels = channels
         self._format = format
-        self._queue = out_queue
-        self._session = None
-        self._stream = None
+        self._out_queue = out_queue
+
+        self._internal_queue = None
+        self._internal_thread = None
+        self._internal_is_running = threading.Event()
 
     def is_runnning(self) -> bool:
-        return self._stream is not None and self._stream.is_active()
+        return self._internal_is_running.is_set()
 
     def start(self):
-        if self._session is None:
-            self._session = PyAudioManager.acquire_shared_instance()
-        if self._stream is None:
-            self._stream = self._session.open(
-                channels=self._channels,
-                format=self._format,
-                rate=self._frame_rate,
-                input=True,
-                input_device_index=self._device_index,
-                stream_callback=self._stream_callback,
+        self.stop()
+        self._internal_queue = queue.Queue()
+        self._internal_thread = threading.Thread(
+            name=type(self).__name__,
+            target=self._internal_signal_handler_loop,
+            args=(
+                self._internal_is_running,
+                self._internal_queue,
+                self._out_queue,
+                self._channels,
+                self._format,
+                self._frame_rate,
+                self._device_index,
             )
-        self._stream.start_stream()
+        )
+        self._internal_is_running.set()
+        self._internal_thread.start()
+
 
     def stop(self):
-        if self._stream is not None:
-            self._stream.stop_stream()
-            self._stream.close()
-            self._stream = None
-        if self._session is not None:
-            PyAudioManager.release_shared_instance(self._session)
-            self._session = None
+        self._internal_is_running.clear()
+        if self._internal_queue is not None:
+            self._internal_queue = None
+        if self._internal_thread is not None:
+            self._internal_thread.join()
+            self._internal_thread = None
+
+    _ErrorSignal = collections.namedtuple("_ErrorSignal", ["error"])
+
+    _DataSignal = collections.namedtuple("_DataSignal", ["data"])
 
     def _stream_callback(self, in_data, frame_count, time_info, status):
-        time_info = TimeInfo(time_info)
-        bytes_per_channel = pyaudio.get_sample_size(self._format)
-        theoretic_len = frame_count * self._channels * bytes_per_channel
-        assert theoretic_len == len(in_data)
-
         try:
-            self._queue.put_nowait((in_data, time_info))
-        except queue.Full:
-            print(f"!!!!!!!!!!!!!!!!!!!!!! FRAME DROPPED")
-            # TODO: Log warning about the queue being full
-            pass
+            time_info = TimeInfo(time_info)
+            bytes_per_channel = pyaudio.get_sample_size(self._format)
+            theoretic_len = frame_count * self._channels * bytes_per_channel
+            assert theoretic_len == len(in_data)
+            out_signal = PyAudioDeviceSource._DataSignal((in_data, time_info))
+        except Exception as err:
+            out_signal = PyAudioDeviceSource._ErrorSignal(err)
 
+        self._internal_queue.put_nowait(out_signal)
         return (None, pyaudio.paContinue)
+
+    def _internal_signal_handler_loop(self, is_running, internal_queue, out_queue, channels, format, frame_rate, device_index):
+
+        with PyAudioManager.shared_instance() as manager:
+
+            stream = manager.open(
+                channels=channels,
+                format=format,
+                rate=frame_rate,
+                input=True,
+                input_device_index=device_index,
+                stream_callback=self._stream_callback,
+            )
+
+            stream.start_stream()
+
+            try:
+                while is_running.is_set():
+                    try:
+                        signal = internal_queue.get(timeout=0.1)
+                    except queue.Empty:
+                        continue
+                    if isinstance(signal, PyAudioDeviceSource._DataSignal):
+                        out_queue.put_nowait(signal.data)
+                    elif isinstance(signal, PyAudioDeviceSource._ErrorSignal):
+                        raise signal.error
+                    else:
+                        raise ValueError(f"Unknown signal: {signal}")
+            except Exception as err:
+                logger.error(err)
+
+            stream.stop_stream()
+            stream.close()
