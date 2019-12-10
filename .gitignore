@@ -1,4 +1,4 @@
-examples/*.out.*
+examples/outputs
 
 # Created by https://www.gitignore.io/api/python,pycharm,visualstudio
 # Edit at https://www.gitignore.io/?templates=python,pycharm,visualstudio
@@ -582,3 +582,8 @@ Temporary Items
 
 # End of https://www.gitignore.io/api/macos
 .ipynb_checkpoints
+
+*.mp4
+*.dat
+*.npy
+*.zip
