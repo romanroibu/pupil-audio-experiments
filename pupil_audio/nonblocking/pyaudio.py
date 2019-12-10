@@ -7,6 +7,7 @@ import typing as T
 
 import pyaudio
 
+from pupil_audio.utils import HeartbeatMixin
 from pupil_audio.utils.pyaudio import PyAudioManager, HostApiInfo, DeviceInfo, TimeInfo
 
 
@@ -99,7 +100,7 @@ class PyAudioBackgroundDeviceMonitor(PyAudioDeviceMonitor):
                 time.sleep(remaining_time)
 
 
-class PyAudioDeviceSource():
+class PyAudioDeviceSource:
 
     def __init__(self, device_index, frame_rate, channels, format, out_queue):
         self._device_index = device_index
@@ -111,11 +112,14 @@ class PyAudioDeviceSource():
         self._internal_queue = None
         self._internal_thread = None
         self._internal_is_running = threading.Event()
+        self._internal_is_terminated = False
 
     def is_runnning(self) -> bool:
         return self._internal_is_running.is_set()
 
     def start(self):
+        if self._internal_is_terminated:
+            raise ValueError("Can't start terminated source")
         self.stop()
         self._internal_queue = queue.Queue()
         self._internal_thread = threading.Thread(
@@ -134,7 +138,6 @@ class PyAudioDeviceSource():
         self._internal_is_running.set()
         self._internal_thread.start()
 
-
     def stop(self):
         self._internal_is_running.clear()
         if self._internal_queue is not None:
@@ -142,6 +145,11 @@ class PyAudioDeviceSource():
         if self._internal_thread is not None:
             self._internal_thread.join()
             self._internal_thread = None
+
+    def cleanup(self):
+        self.stop()
+        # After cleanup, the source is considered terminated and shouldn't be used
+        self._internal_is_terminated = True
 
     _ErrorSignal = collections.namedtuple("_ErrorSignal", ["error"])
 
@@ -192,3 +200,13 @@ class PyAudioDeviceSource():
 
             stream.stop_stream()
             stream.close()
+
+
+class PyAudioDeviceWithHeartbeatSource(HeartbeatMixin, PyAudioDeviceSource):
+
+    def _stream_callback(self, *args, **kwargs):
+        self.heartbeat()
+        return super()._stream_callback(*args, **kwargs)
+
+    def on_heartbeat_stopped(self):
+        self.cleanup()
