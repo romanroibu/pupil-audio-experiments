@@ -67,28 +67,47 @@ class HeartbeatMixin:
 
     # Public
 
+    """
+    Time interval after which the `on_heartbeat_unexpectedly_stopped` method is called.
+    """
     heartbeat_timeout = lazy_property(lambda self: 5, type=float)
 
     def heartbeat(self):
-        if self._heartbeat_is_running.is_set():
-            self._heatbeat_timer.cancel()
-        self._heatbeat_timer = self._create_heartbeat_timer()
-        self._heatbeat_timer.start()
-        self._heartbeat_is_running.set()
+        """
+        Calling this method signals a running heartbeat, which resets the timer.
 
-    def on_heartbeat_stopped(self):
-        pass
+        The client of the mixin is responsible to call this method periodically,
+        in intervals less than `heartbeat_timeout` to avoid `on_heartbeat_unexpectedly_stopped`
+        from being called.
+        """
+        self.__destroy_heartbeat_timer()
+        self.__create_heartbeat_timer()
+
+    def heartbeat_complete(self):
+        """
+        Calling this method signals a successful completion of the heartbeat sequence.
+
+        The `on_heartbeat_unexpectedly_stopped` will not be called.
+        """
+        self.__destroy_heartbeat_timer()
+
+    def on_heartbeat_unexpectedly_stopped(self):
+        self.__destroy_heartbeat_timer()
 
     # Private
 
-    _heartbeat_is_running = lazy_property(lambda self: threading.Event())
+    __heartbeat_is_running = lazy_property(lambda self: threading.Event())
 
-    def _create_heartbeat_timer(self):
-        return threading.Timer(self.heartbeat_timeout, self._on_heartbeat_timeout)
+    def __destroy_heartbeat_timer(self):
+        if self.__heartbeat_is_running.is_set():
+            self.__heartbeat_is_running.clear()
+            self.__heatbeat_timer.cancel()
+            self.__heatbeat_timer = None
 
-    def _on_heartbeat_timeout(self):
-        self._heartbeat_is_running.clear()
-        self._heatbeat_timer.cancel()
-        del self._heartbeat_is_running
-        del self._heatbeat_timer
-        self.on_heartbeat_stopped()
+    def __create_heartbeat_timer(self):
+        if not self.__heartbeat_is_running.is_set():
+            self.__heartbeat_is_running.set()
+            self.__heatbeat_timer = threading.Timer(
+                self.heartbeat_timeout, self.on_heartbeat_unexpectedly_stopped
+            )
+            self.__heatbeat_timer.start()
