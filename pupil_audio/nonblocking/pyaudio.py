@@ -204,9 +204,13 @@ class PyAudioDeviceSource:
 
 class PyAudioDeviceWithHeartbeatSource(HeartbeatMixin, PyAudioDeviceSource):
 
+    def stop(self, *args, **kwargs):
+        super().stop(*args, **kwargs)
+        self.heartbeat_complete()
+
     def _stream_callback(self, *args, **kwargs):
         self.heartbeat()
         return super()._stream_callback(*args, **kwargs)
 
-    def on_heartbeat_stopped(self):
+    def on_heartbeat_unexpectedly_stopped(self):
         self.cleanup()
