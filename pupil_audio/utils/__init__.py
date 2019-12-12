@@ -70,7 +70,7 @@ class HeartbeatMixin:
     """
     Time interval after which the `on_heartbeat_unexpectedly_stopped` method is called.
     """
-    heartbeat_timeout = lazy_property(lambda self: 5, type=float)
+    heartbeat_timeout = lazy_property(lambda self: 1, type=float)
 
     def heartbeat(self):
         """
