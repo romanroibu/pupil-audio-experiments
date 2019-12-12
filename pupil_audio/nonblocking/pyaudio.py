@@ -166,7 +166,9 @@ class PyAudioDeviceSource:
         except Exception as err:
             out_signal = PyAudioDeviceSource._ErrorSignal(err)
 
-        self._internal_queue.put_nowait(out_signal)
+        if self._internal_queue is not None:
+            self._internal_queue.put_nowait(out_signal)
+
         return (None, pyaudio.paContinue)
 
     def _internal_signal_handler_loop(self, is_running, internal_queue, out_queue, channels, format, frame_rate, device_index):
