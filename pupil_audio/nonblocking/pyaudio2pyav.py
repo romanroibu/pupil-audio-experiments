@@ -189,8 +189,8 @@ class PyAudio2PyAVTranscoder:
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
 
-        out_frame.rate = self.frame_rate
-        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.rate = int(self.frame_rate)
+        out_frame.time_base = Fraction(1, int(self.frame_rate))
         out_frame.pts = out_frame.samples * self.num_encoded_frames
         self.num_encoded_frames += 1
 
@@ -235,8 +235,8 @@ class PassthroughTranscoder(PyAudio2PyAVTranscoder):
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
 
-        out_frame.rate = self.frame_rate
-        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.rate = int(self.frame_rate)
+        out_frame.time_base = Fraction(1, int(self.frame_rate))
         out_frame.pts = out_frame.samples * self.num_encoded_frames
         self.num_encoded_frames += 1
 
