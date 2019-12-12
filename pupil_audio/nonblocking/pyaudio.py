@@ -104,8 +104,8 @@ class PyAudioDeviceSource:
 
     def __init__(self, device_index, frame_rate, channels, format, out_queue):
         self._device_index = device_index
-        self._frame_rate = int(frame_rate)
-        self._channels = channels
+        self._frame_rate = int(frame_rate) if frame_rate else None
+        self._channels = int(channels) if channels else None
         self._format = format
         self._out_queue = out_queue
 
