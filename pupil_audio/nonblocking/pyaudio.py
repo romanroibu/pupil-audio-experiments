@@ -114,7 +114,8 @@ class PyAudioDeviceSource:
         self._internal_is_running = threading.Event()
         self._internal_is_terminated = False
 
-    def is_runnning(self) -> bool:
+    @property
+    def is_running(self) -> bool:
         return self._internal_is_running.is_set()
 
     def start(self):
