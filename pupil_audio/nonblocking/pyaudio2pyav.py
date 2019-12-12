@@ -60,9 +60,6 @@ class PyAudio2PyAVCapture:
         self.sink = sink_cls(
             file_path=out_path,
             transcoder=self.transcoder,
-            frame_rate=self.transcoder.frame_rate,
-            channels=self.transcoder.channels,
-            format=self.transcoder.pyav_format,
             in_queue=self.shared_queue,
         )
 

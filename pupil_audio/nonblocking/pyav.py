@@ -9,15 +9,12 @@ import numpy as np
 
 
 class PyAVFileSink():
-    def __init__(self, file_path, transcoder, frame_rate, channels, format, in_queue, timestamps_path=None):
+    def __init__(self, file_path, transcoder, in_queue, timestamps_path=None):
         file_path = Path(file_path)
         self._file_path = str(file_path)
         self._timestamps_path = timestamps_path or str(file_path.with_name(file_path.stem + "_timestamps").with_suffix(".npy"))
         self._timestamps_list = None
         self._transcoder = transcoder
-        self._frame_rate = frame_rate
-        self._channels = channels
-        self._format = format
         self._queue = in_queue
         self._thread = None
         self._running = threading.Event()
@@ -34,7 +31,7 @@ class PyAVFileSink():
         self._thread = threading.Thread(
             name=type(self).__name__,
             target=self._record_loop,
-            args=(self._file_path, self._frame_rate),
+            args=(self._file_path, self._transcoder.frame_rate),
             daemon=True,
         )
         self._thread.start()
