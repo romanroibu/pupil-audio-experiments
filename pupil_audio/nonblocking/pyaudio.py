@@ -205,15 +205,95 @@ class PyAudioDeviceSource:
             stream.close()
 
 
-class PyAudioDeviceWithHeartbeatSource(HeartbeatMixin, PyAudioDeviceSource):
+class PyAudioDelayedDeviceSource(HeartbeatMixin, PyAudioDeviceSource):
+    def __init__(self, *args, device_index, device_name, device_monitor=None, **kwargs):
+        # This value doesn't make sense, since it will be updated based on device_name
+        device_index = None
+        super().__init__(*args, device_index, **kwargs)
+        self.device_name = device_name
+        self.device_monitor = device_monitor or PyAudioBackgroundDeviceMonitor()
+        assert isinstance(self.device_monitor, PyAudioBackgroundDeviceMonitor)
+        self._wait_for_device_thread = None
+        self._wait_for_device = threading.Event()
 
-    def stop(self, *args, **kwargs):
-        super().stop(*args, **kwargs)
+    @property
+    def _is_waiting_for_device(self) -> bool:
+        return self._wait_for_device.is_set()
+
+    def start(self):
+        if self._is_waiting_for_device or self.is_running:
+            return
+        self.stop()
+        self._wait_for_device.set()
+        self._wait_for_device_thread = threading.Thread(
+            name=type(self).__name__,
+            target=self.__delayed_start,
+            args=(self.device_name,),
+            daemon=True,
+        )
+        self._wait_for_device_thread.start()
+        # Don't call `super().start()` here!
+        # It's called in `__delayed_start` once the _device_index is configured
+
+    def stop(self):
         self.heartbeat_complete()
+        self._wait_for_device.clear()
+        if self._wait_for_device_thread is not None:
+            self._wait_for_device_thread.join()
+            self._wait_for_device_thread = None
+        super().stop()
 
     def _stream_callback(self, *args, **kwargs):
         self.heartbeat()
         return super()._stream_callback(*args, **kwargs)
 
+    def on_input_device_connected(self, device_info):
+        pass
+
+    def on_input_device_disconnected(self):
+        pass
+
     def on_heartbeat_unexpectedly_stopped(self):
+        self.on_input_device_disconnected()
         self.cleanup()
+
+    def __delayed_start(self, device_name, freq_hz=0.3, time_fn=None):
+        exec_time = 1./freq_hz
+        time_fn = time_fn or time.monotonic
+
+        monitor_was_already_running = self.device_monitor.is_running
+
+        if not monitor_was_already_running:
+            self.device_monitor.start()
+
+        device_info = None
+
+        while self._wait_for_device.is_set():
+            start_time = time_fn()
+
+            try:
+                self.device_monitor.update()
+                device_info = self.device_monitor.devices_by_name.get(device_name, None)
+                if device_info is not None:
+                    break
+            except Exception as err:
+                logger.error(err)
+
+            remaining_time = exec_time - (time_fn() - start_time)
+            if remaining_time > 0:
+                time.sleep(remaining_time)
+
+        if not monitor_was_already_running:
+            self.device_monitor.stop()
+
+        if device_info is None:
+            return
+
+        self._device_index = device_info.index
+        self._frame_rate = int(device_info.default_sample_rate)
+        self._channels = int(device_info.max_input_channels)
+        self._wait_for_device_thread = None
+
+        self.on_input_device_connected(device_info)
+
+        super().start()
