@@ -89,6 +89,9 @@ class PyAudio2PyAVTranscoder:
     def stop(self):
         pass
 
+    def reset(self):
+        self.num_encoded_frames = 0
+
     _dtype_to_pyaudio_format = {
         np.dtype("<f4"): pyaudio.paFloat32,
         np.dtype("<i2"): pyaudio.paInt16,
