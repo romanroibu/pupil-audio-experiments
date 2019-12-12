@@ -86,3 +86,37 @@ class PyAVFileSink():
 
         # Finally, signal the end of the recording to other threads
         self._finished.set()
+
+
+class PyAVMultipartFileSink(PyAVFileSink):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__base_file_path = Path(self._file_path)
+        self.__base_timestamp_path = Path(self._timestamps_path)
+        self.__file_counter = 0
+
+    def start(self):
+        self.__file_counter = 0
+        super().start()
+
+    def break_part(self):
+        super().stop()
+        self.__update_file_paths()
+        self._transcoder.reset()
+        super().start()
+
+    def stop(self):
+        super().stop()
+
+    def __update_file_paths(self):
+        self.__file_counter += 1
+
+        file_path = self.__base_file_path
+        time_path = self.__base_timestamp_path
+
+        file_path = file_path.with_name(file_path.stem + f"-{self.__file_counter}").with_suffix(file_path.suffix)
+        time_path = time_path.with_name(time_path.stem + f"-{self.__file_counter}").with_suffix(time_path.suffix)
+
+        self._file_path = str(file_path)
+        self._timestamps_path = str(time_path)
