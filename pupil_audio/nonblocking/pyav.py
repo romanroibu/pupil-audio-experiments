@@ -18,6 +18,8 @@ class PyAVFileSink():
         self._queue = in_queue
         self._thread = None
         self._running = threading.Event()
+        self._finished = threading.Event()
+        self._finished.set()
 
     @property
     def is_running(self) -> bool:
@@ -51,6 +53,10 @@ class PyAVFileSink():
             self._timestamps_list = None
 
     def _record_loop(self, file_path, frame_rate):
+        # First, wait until any other previously called record loop is done
+        self._finished.wait()
+        self._finished.clear()
+
         container = av.open(file_path, 'w')
         stream = container.add_stream('aac', rate=float(frame_rate))
         should_flush_stream = False
@@ -77,3 +83,6 @@ class PyAVFileSink():
                 container.mux(packet)
 
         container.close()
+
+        # Finally, signal the end of the recording to other threads
+        self._finished.set()
