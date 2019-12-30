@@ -25,7 +25,9 @@ class PyAudio2PyAVCapture:
         frame_rate=None,
         channels=None,
         dtype=None,
+        source_cls=None,
         transcoder_cls=None,
+        sink_cls=None,
     ):
         device = DeviceInfo.named_input(in_name)
 
@@ -34,14 +36,20 @@ class PyAudio2PyAVCapture:
 
         self.shared_queue = queue.Queue()
 
-        transcoder_cls = transcoder_cls or PyAudio2PyAVTranscoder
-        assert issubclass(transcoder_cls, PyAudio2PyAVTranscoder)
+        self.source_cls = source_cls or PyAudioDeviceSource
+        assert issubclass(self.source_cls, PyAudioDeviceSource)
 
-        self.transcoder = transcoder_cls(
+        self.transcoder_cls = transcoder_cls or PyAudio2PyAVTranscoder
+        assert issubclass(self.transcoder_cls, PyAudio2PyAVTranscoder)
+
+        self.sink_cls = sink_cls or PyAVFileSink
+        assert issubclass(self.sink_cls, PyAVFileSink)
+
+        self.transcoder = self.transcoder_cls(
             frame_rate=frame_rate, channels=channels, dtype=dtype,
         )
 
-        self.source = PyAudioDeviceSource(
+        self.source = self.source_cls(
             device_index=device.index,
             frame_rate=self.transcoder.frame_rate,
             channels=self.transcoder.channels,
@@ -49,12 +57,9 @@ class PyAudio2PyAVCapture:
             out_queue=self.shared_queue,
         )
 
-        self.sink = PyAVFileSink(
+        self.sink = self.sink_cls(
             file_path=out_path,
             transcoder=self.transcoder,
-            frame_rate=self.transcoder.frame_rate,
-            channels=self.transcoder.channels,
-            format=self.transcoder.pyav_format,
             in_queue=self.shared_queue,
         )
 
@@ -83,6 +88,9 @@ class PyAudio2PyAVTranscoder:
 
     def stop(self):
         pass
+
+    def reset(self):
+        self.num_encoded_frames = 0
 
     _dtype_to_pyaudio_format = {
         np.dtype("<f4"): pyaudio.paFloat32,
@@ -184,8 +192,8 @@ class PyAudio2PyAVTranscoder:
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
 
-        out_frame.rate = self.frame_rate
-        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.rate = int(self.frame_rate)
+        out_frame.time_base = Fraction(1, int(self.frame_rate))
         out_frame.pts = out_frame.samples * self.num_encoded_frames
         self.num_encoded_frames += 1
 
@@ -230,8 +238,8 @@ class PassthroughTranscoder(PyAudio2PyAVTranscoder):
         for i, plane in enumerate(out_frame.planes):
             plane.update(tmp_frame[i, :])
 
-        out_frame.rate = self.frame_rate
-        out_frame.time_base = Fraction(1, self.frame_rate)
+        out_frame.rate = int(self.frame_rate)
+        out_frame.time_base = Fraction(1, int(self.frame_rate))
         out_frame.pts = out_frame.samples * self.num_encoded_frames
         self.num_encoded_frames += 1
 
